@@ -39,7 +39,7 @@ frontendProject:
     material: true
     # When false, multiple services will be created, based on 'x-swagger-router-controller'
     oneService: true
-# package.json information. When "inSwagger: true", takes information from swagger file, but editing is needed
+# package.json information. If empty, takes information from swagger file, but editing is needed
 projectInfo:
     name:
     version:
