@@ -1,0 +1,26 @@
+{
+  "name": "project-gen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@hapi/code": "^8.0.2",
+    "connect": "^3.7.0",
+    "express": "^4.17.1",
+    "lodash": "^4.17.20",
+    "ncp": "^2.0.0",
+    "pg": "^8.3.3",
+    "pino": "^6.6.1",
+    "swagger": "^0.7.5",
+    "swagger-js-codegen": "^1.13.0",
+    "swagger-node-codegen": "^1.6.3",
+    "swagger-tools": "^0.10.4",
+    "swagger-ui-express": "^4.1.4",
+    "yaml": "^1.10.0"
+  }
+}
