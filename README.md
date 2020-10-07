@@ -9,7 +9,7 @@ yaml example:
 ``` yaml
 # path to swagger file, example: "swaggerFile: ./swagger.yaml"
 swaggerFile:
-# path to database file, example: "databaseFile: ./db.sql"
+# path to database file, only working database currently is PostgreSQL, example: "databaseFile: ./db.sql"
 databaseFile:
 backendProject:
     # When false, skips creation of frontend project
@@ -46,4 +46,25 @@ projectInfo:
     description:
     author:
     license:
-    ```
+```
+
+##### Swagger tags
+Custom swagger tags used in project creation:
+`x-query` for queries
+``` yaml
+paths:
+    /example-path:
+        x-swagger-router-controller: example
+        get:
+            x-query: 'select * from table'
+            summary: 
+            operationId: select
+```
+`x-payload` for transforming data from back to front (in cases when payload is inside complex data sent from back like `{data: {moreData: payload}, status: 200}`
+``` yaml
+responses:
+    200:
+        x-payload: "data.moreData"
+        description: 
+        schema:
+```
