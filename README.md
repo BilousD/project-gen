@@ -46,6 +46,10 @@ projectInfo:
     description:
     author:
     license:
+dbInfo:
+    user: db
+    dbName: db
+    dbPassword: db
 ```
 
 ##### Swagger tags
