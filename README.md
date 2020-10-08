@@ -2,6 +2,10 @@
 Generate nodejs and angular project from swagger file
 
 Start with `node index OPTIONS_FILE`
+Currently installs everything in its own folder
+
+Can be installed globally with `npm install -g ./`
+Run with `swagger-project-gen OPTIONS_FILE` in a folder where projects will be generated
 
 ##### Options file
 can be .yaml or .json
