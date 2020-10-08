@@ -129,6 +129,7 @@ function getMethods(swagger, path, httpMethod) {
                         // probably should be something like `${prop} . ${propParam.key}`
                     case 'string':
                     case 'integer':
+                    case 'number':
                     default:
                         parameters.push(parameter.name);
                 }

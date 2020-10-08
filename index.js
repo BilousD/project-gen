@@ -1,9 +1,10 @@
+#!/usr/bin/env node
+
 const fs = require('fs');
 const YAML = require('yaml');
-const backGen = require('./backend');
 const swaggerSpec = require('swagger-tools').specs.v2_0;
 const _ = require('lodash');
-const {resolve, extname} = require('path');
+const path = require('path');
 const generateFiles = require('./creating-files/generate-files');
 
 const util = require('util');
@@ -40,7 +41,7 @@ async function main() {
     try {
         // Copy template files
         await new Promise((resolve, reject) => {
-            ncp('./templates-back', `./${options.backendProject.name}`, function (err) {
+            ncp(path.resolve(__dirname, './templates-back'), `./${options.backendProject.name}`, function (err) {
                 if (err) {
                     reject(err);
                 }
@@ -52,7 +53,7 @@ async function main() {
         process.exit(1);
     }
 
-    fs.copyFileSync(swaggerFile,`./${options.backendProject.name}/swagger${extname(swaggerFile)}`);
+    fs.copyFileSync(swaggerFile,`./${options.backendProject.name}/swagger${path.extname(swaggerFile)}`);
     fs.copyFileSync(dbFile,`./${options.backendProject.name}/src/db/db.sql`);
 
     if(options.frontendProject.generate) {
@@ -89,7 +90,7 @@ function optionsInit() {
     }
     // TODO change default to ...
     // TODO opts.json
-    const options = _.merge(parseFromExtension(resolve(__dirname,'./options.yaml')), parseFromExtension(arg[2]));
+    const options = _.merge(parseFromExtension(path.resolve(__dirname,'./options.yaml')), parseFromExtension(arg[2]));
     if (!options.swaggerFile || !options.databaseFile) {
         throw new Error(`Swagger or Database file paths are not specified in options`);
     }
@@ -118,7 +119,7 @@ async function generateAngular(options) {
     try {
         // Copy template files
         await new Promise((resolve, reject) => {
-            ncp('./templates-front', `./${options.frontendProject.name}`, function (err) {
+            ncp(path.resolve(__dirname, './templates-front'), `./${options.frontendProject.name}`, function (err) {
                 if (err) {
                     reject(err);
                 }
@@ -137,7 +138,7 @@ async function generateAngular(options) {
 
     // Changing frontend package.json to include proxy file for backend
     try {
-        let packageFile = require(`./${options.frontendProject.name}/package.json`);
+        let packageFile = parseFromExtension(`./${options.frontendProject.name}/package.json`);
         packageFile.scripts.start = "ng serve --host=0.0.0.0 --proxy-config proxy.js";
         fs.writeFileSync(`./${options.frontendProject.name}/package.json`, JSON.stringify(packageFile,null, 2), 'utf8');
     } catch (e) {
@@ -160,7 +161,7 @@ async function execute(log, output, arg) {
 
 function parseFromExtension(pathToFile) {
     try {
-        switch (extname(pathToFile)) {
+        switch (path.extname(pathToFile)) {
         case '.json':
             return JSON.parse(fs.readFileSync(pathToFile).toString());
         default:

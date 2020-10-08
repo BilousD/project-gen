@@ -23,6 +23,7 @@ function switchArray(items) {
     } else {
         switch (items.type) {
             case 'integer':
+            case 'number':
                 property = 'number[]';
                 break;
             case 'string':
@@ -56,6 +57,7 @@ function getProperties(obj, key, type) {
         } else {
             switch (obj[property].type) {
                 case 'integer':
+                case 'number':
                     if(obj[property].enum){
                         // is it possible here?
                     } else {
