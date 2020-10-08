@@ -1,4 +1,3 @@
-// same data => one function?
 const fs = require('fs');
 const {getHeaders, getFrontHeader} = require('./headers')
 const getMethods = require('./methods')
@@ -6,6 +5,8 @@ const createPackage = require('./create-package')
 const {camelize,kebabise,fupper} = require('../change-case');
 const {generateTypesFile} = require('./manageTypes');
 const createComponents = require('./creating-components');
+const dockerFile = require("./docker-file");
+
 async function generateFiles(swagger, options) {
 
     createPackage(swagger, options);
@@ -103,6 +104,10 @@ async function generateFiles(swagger, options) {
         const functionalFileData = files[controller].headers.functionalTest + '\n' + files[controller].functionalMethod + '\n});'
         fs.writeFileSync(`./${options.backendProject.name}/tests/functional/${controller}-test.js`, functionalFileData, 'utf8');
     });
+
+    // write postgre docker file
+    const dockerFileData = dockerFile(options);
+    fs.writeFileSync(`./${options.backendProject.name}/devops/docker-compose.yml`, dockerFileData, 'utf8');
 }
 
 module.exports = generateFiles;

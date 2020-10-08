@@ -1,9 +1,10 @@
+const {fupper} = require("../change-case");
+
 function generateTypesFile(swagger){
     let type = '';
     Object.keys(swagger.definitions).forEach(key => {
         // export interface definitions[i]
-        let properties = getProperties(swagger.definitions[key].properties);
-                                    // was {}Type
+        let properties = getProperties(swagger.definitions[key].properties, key, type);
         type += `\nexport interface ${key} ${JSON.stringify(properties, null, 4)}
 `;
     });
@@ -46,7 +47,7 @@ function switchArray(items) {
     }
     return property;
 }
-function getProperties(obj) {
+function getProperties(obj, key, type) {
     let properties = {};
     Object.keys(obj).forEach(property => {
         if(property !== '$ref') if(obj[property]['$ref']) {
@@ -55,10 +56,18 @@ function getProperties(obj) {
         } else {
             switch (obj[property].type) {
                 case 'integer':
-                    properties[property] = 'number';
+                    if(obj[property].enum){
+                        // is it possible here?
+                    } else {
+                        properties[property] = 'number';
+                    }
                     break;
                 case 'string':
-                    properties[property]= 'string';
+                    if(obj[property].enum){
+                        properties[property] = createEnum(obj[property].enum, (fupper(key) + fupper(property) + 'Enum'), type);
+                    } else {
+                        properties[property] = 'string';
+                    }
                     break;
                 case 'array':
                     properties[property] = switchArray(obj[property].items);
@@ -69,10 +78,14 @@ function getProperties(obj) {
                         if (obj[property].properties['$ref']) {
                             properties[property] = obj[property].properties['$ref'].split('/').pop();
                         } else {
-                            properties[property] = getProperties(obj[property].properties);
+                            properties[property] = getProperties(obj[property].properties, type);
                         }
                     } else {
-                        properties[property] = 'object';
+                        if (obj[property].type){
+                            properties[property] = obj[property].type;
+                        } else {
+                            properties[property] = 'object';
+                        }
                     }
                     break;
             }
@@ -81,5 +94,12 @@ function getProperties(obj) {
     return properties;
 }
 
+function createEnum(enumArray, name, type) {
+    type += `\nexport enum ${name} {
+    ${enumArray.join(',\n\t')}
+}
+`;
+    return name;
+}
 
 module.exports = {generateTypesFile, getProperties};
