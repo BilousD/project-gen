@@ -50,7 +50,7 @@ projectInfo:
 
 ##### Swagger tags
 Custom swagger tags used in project creation:
-`x-query` for queries
+`x-query` for queries, example `delete from users where login = :login` , where'login' is a name of a swagger parameter
 ``` yaml
 paths:
     /example-path:
