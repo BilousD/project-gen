@@ -4,7 +4,8 @@ function generateTypesFile(swagger){
     let type = '';
     Object.keys(swagger.definitions).forEach(key => {
         // export interface definitions[i]
-        let properties = getProperties(swagger.definitions[key].properties, key, type);
+        const {properties, changedType} = getProperties(swagger.definitions[key].properties, key, type);
+        type = changedType;
         type += `\nexport interface ${key} ${JSON.stringify(properties, null, 4)}
 `;
     });
@@ -66,7 +67,9 @@ function getProperties(obj, key, type) {
                     break;
                 case 'string':
                     if(obj[property].enum){
-                        properties[property] = createEnum(obj[property].enum, (fupper(key) + fupper(property) + 'Enum'), type);
+                        const {name, changedType} = createEnum(obj[property].enum, (fupper(key) + fupper(property) + 'Enum'), type);
+                        properties[property] = name;
+                        type = changedType;
                     } else {
                         properties[property] = 'string';
                     }
@@ -80,7 +83,9 @@ function getProperties(obj, key, type) {
                         if (obj[property].properties['$ref']) {
                             properties[property] = obj[property].properties['$ref'].split('/').pop();
                         } else {
-                            properties[property] = getProperties(obj[property].properties, type);
+                            const {propertyValue, changedType} = getProperties(obj[property].properties, type);
+                            properties[property] = propertyValue;
+                            type = changedType;
                         }
                     } else {
                         if (obj[property].type){
@@ -93,15 +98,15 @@ function getProperties(obj, key, type) {
             }
         }
     });
-    return properties;
+    return {properties, changedType: type};
 }
 
 function createEnum(enumArray, name, type) {
     type += `\nexport enum ${name} {
-    ${enumArray.join(',\n\t')}
+    ${enumArray.join(',\n\t\t')}
 }
 `;
-    return name;
+    return {name, changedType: type};
 }
 
 module.exports = {generateTypesFile, getProperties};
