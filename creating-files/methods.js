@@ -97,14 +97,37 @@ function getMethods(swagger, path, httpMethod) {
     let parametersController = [];
     let parameters = [];
 
-    let query = 'SELECT NOW()';
+    let queries = [
+        `log.debug('${method.operationId} with query "SELECT NOW()"\nYOU SHOULD REPLACE THIS');
+        const result = await pgPool.query('SELECT NOW()', [${parameters.join(', ')}]);`
+    ];
     if (method['x-query']) {
-        query = method['x-query'];
+        queries = [];
         let i = 1;
-        query = query.replace(/:\w*/g, (fld)=>{
-            parameters.push(fld.replace(':', ''));
-            return '$'+i++;
-        });
+        let checkDuplicates = {};
+        function processQuery(query) {
+            query = query.replace(/:\w*/g, (fld)=>{
+                const p = fld.replace(':', '');
+                if(checkDuplicates[p]) {
+                    return checkDuplicates[p];
+                }
+                checkDuplicates[p] = '$'+i++;
+                if (method.parameters) {
+                    parametersController.push(`req.swagger.params.${method.parameters.map(e => e.name).join(".value, req.swagger.params.")}.value`);
+                }
+                parameters.push(p);
+                return checkDuplicates[p];
+            });
+            queries.push(`log.debug('${method.operationId} with query "${query}"');
+    const result = await pgPool.query('${query}', [${parameters.join(', ')}]);`);
+        }
+        if(_.isArray(method['x-query'])){
+            for (let query of method['x-query']) {
+                processQuery(query);
+            }
+        } else {
+            processQuery(method['x-query']);
+        }
     } else if (method.parameters) {
         for (let parameter of method.parameters) {
             // there was only this but i dont know why
@@ -204,7 +227,7 @@ function getMethods(swagger, path, httpMethod) {
         // type = method.responses[200].schema;
     }
 
-
+    parametersController = _.uniq(parametersController);
 
     let controllerMethod = `    /**
      * ${method.summary}
@@ -236,8 +259,9 @@ function getMethods(swagger, path, httpMethod) {
      * ${method.summary}
      */
     async ${camelize(method.operationId)}(${parameters.join(', ')}) {
-        log.debug('${method.operationId} with query "${query}"');
-        const result = await pgPool.query('${query}', [${parameters.join(', ')}]);
+        
+        ${queries.join('\n    ')}
+        
         return result.rows; 
     }
 `;
