@@ -106,7 +106,7 @@ function getMethods(swagger, path, httpMethod) {
         let i = 1;
         let checkDuplicates = {};
         function processQuery(query) {
-            query = query.replace(/:\w*/g, (fld)=>{
+            query = query.replace(/:[\w.]*/g, (fld)=>{
                 const p = fld.replace(':', '');
 
                 if(checkDuplicates[p]) {
