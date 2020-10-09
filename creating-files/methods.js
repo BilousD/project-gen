@@ -108,6 +108,7 @@ function getMethods(swagger, path, httpMethod) {
         function processQuery(query) {
             query = query.replace(/:\w*/g, (fld)=>{
                 const p = fld.replace(':', '');
+
                 if(checkDuplicates[p]) {
                     return checkDuplicates[p];
                 }
@@ -115,7 +116,7 @@ function getMethods(swagger, path, httpMethod) {
                 if (method.parameters) {
                     parametersController.push(`req.swagger.params.${method.parameters.map(e => e.name).join(".value, req.swagger.params.")}.value`);
                 }
-                parameters.push(p);
+                parameters.push(p.split('.')[0]);
                 return checkDuplicates[p];
             });
             queries.push(`log.debug(\`${method.operationId} with query "${query}"\`);
@@ -227,6 +228,7 @@ function getMethods(swagger, path, httpMethod) {
         // type = method.responses[200].schema;
     }
 
+    parameters = _.uniq(parameters);
     parametersController = _.uniq(parametersController);
 
     let controllerMethod = `    /**
