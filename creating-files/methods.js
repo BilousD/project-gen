@@ -101,7 +101,7 @@ function getMethods(swagger, path, httpMethod) {
     if (method['x-query']) {
         query = method['x-query'];
         let i = 1;
-        query = query.replace(/:\w*/, (fld)=>{
+        query = query.replace(/:\w*/g, (fld)=>{
             parameters.push(fld.replace(':', ''));
             return '$'+i++;
         });
