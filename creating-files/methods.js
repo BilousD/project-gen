@@ -120,7 +120,7 @@ function getMethods(swagger, path, httpMethod) {
                 return checkDuplicates[p];
             });
             queries.push(`log.debug(\`${method.operationId} with query "${query}"\`);
-    const result = await pgPool.query(\`${query}\`, [${parameters.join(', ')}]);`);
+        result = await pgPool.query(\`${query}\`, [${Object.keys(checkDuplicates).join(', ')}]);`);
         }
         if(_.isArray(method['x-query'])){
             for (let query of method['x-query']) {
@@ -261,9 +261,8 @@ function getMethods(swagger, path, httpMethod) {
      * ${method.summary}
      */
     async ${camelize(method.operationId)}(${parameters.join(', ')}) {
-        
+        let result;
         ${queries.join('\n    ')}
-        
         return result.rows; 
     }
 `;
