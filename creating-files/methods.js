@@ -45,10 +45,14 @@ function switchArray(swagger, schema) {
     } else {
         switch (schema.items.type) {
             case 'integer':
+            case 'number':
                 type = 'number';
                 break;
             case 'string':
                 type = 'string';
+                break;
+            case 'boolean':
+                type = 'boolean';
                 break;
             case 'array':
                 type = switchArray(swagger, schema.items) + '[]';
@@ -73,9 +77,12 @@ function observableType(swagger, schema) {
     } else {
         switch (schema.type) {
             case 'integer':
+            case 'number':
                 return '<number>';
             case 'string':
                 return '<string>';
+            case 'boolean':
+                return '<boolean>';
             case 'array':
                 return '<' + switchArray(swagger, schema) + '[]>';
             case 'object':
@@ -96,11 +103,8 @@ function getMethods(swagger, path, httpMethod) {
 
     let parametersController = [];
     let parameters = [];
-
-    let queries = [
-        `log.debug('${method.operationId} with query "SELECT NOW()"\nYOU SHOULD REPLACE THIS');
-        const result = await pgPool.query('SELECT NOW()', [${parameters.join(', ')}]);`
-    ];
+    let queries = [];
+    // let result = await api.${httpMethod}('${method}',{${parameters.join(': \'foobar\', ')}});
     if (method['x-query']) {
         queries = [];
         let i = 1;
@@ -115,8 +119,8 @@ function getMethods(swagger, path, httpMethod) {
                 checkDuplicates[p] = '$'+i++;
                 if (method.parameters) {
                     parametersController.push(`req.swagger.params.${method.parameters.map(e => e.name).join(".value, req.swagger.params.")}.value`);
+                    parameters.push(method.parameters.map(e => e.name));
                 }
-                parameters.push(p.split('.')[0]);
                 return checkDuplicates[p];
             });
             queries.push(`log.debug(\`${method.operationId} with query "${query}"\`);
@@ -161,6 +165,11 @@ function getMethods(swagger, path, httpMethod) {
 
             parametersController.push(`req.swagger.params.${parameter.name}.value`);
         }
+    }
+
+    if(queries.length === 0) {
+        queries.push(`log.debug('${method.operationId} with query "SELECT NOW()" YOU SHOULD REPLACE THIS');
+        result = await pgPool.query('SELECT NOW()', [${parameters.join(', ')}]);`);
     }
 
     let type = '<any>';
@@ -231,6 +240,78 @@ function getMethods(swagger, path, httpMethod) {
     parameters = _.uniq(parameters);
     parametersController = _.uniq(parametersController);
 
+    function switchParams(obj) {
+        switch (obj.type) {
+            case 'file':
+            case 'date':
+            case 'string':
+                return 'foobar';
+            case 'boolean':
+                return false;
+            case 'integer':
+            case 'number':
+                return 0;
+            case 'array':
+                let testParams = [];
+                if(obj.items) {
+                    if(obj.items['$ref']) {
+                        const ref = _.get(swagger, obj.items['$ref'].replace('#/','').split('/')).properties;
+                        testParams = [ref.example,ref.example];
+                    } else {
+                        const s = switchParams(obj.items);
+                        testParams = [s,s];
+                    }
+                }
+                return testParams;
+            case 'object':
+                let testParamsObject = {};
+                if(obj.properties) {
+                    for(const [property, parameters] of Object.entries(obj.properties)) {
+                        if(parameters.example) {
+                            testParamsObject[property] = parameters.example;
+                        } else {
+                            testParamsObject[property] = switchParams(parameters);
+                        }
+                    }
+                }
+                return testParamsObject;
+        }
+    }
+    let integrationTestParams = [];
+    let testPath = '';
+    let functionalTestParams = '';
+    if(method.parameters) {
+        for(const param of method.parameters) {
+            let testParams;
+            if(param.example) {
+                testParams = param.example;
+            } else {
+                if(param.schema) {
+                    if(param.schema['$ref']) {
+                        const ref = _.get(swagger, param.schema['$ref'].replace('#/','').split('/')).properties;
+                        testParams = ref.example;
+                    } else {
+                        testParams = switchParams(param.schema);
+                    }
+                } else {
+                    testParams = switchParams(param);
+                }
+            }
+            integrationTestParams.push(JSON.stringify(testParams));
+            switch(param.in) {
+                case 'query':
+                    testPath += `?${param.name}=${JSON.stringify(testParams)}`;
+                    break;
+                case 'path':
+                    testPath += '/'+JSON.stringify(testParams);
+                    break;
+                case 'body':
+                    functionalTestParams += JSON.stringify(testParams);
+                    break;
+            }
+        }
+    }
+
     let controllerMethod = `    /**
      * ${method.summary}
      * Returns: ${method.responses[200].description}
@@ -242,7 +323,7 @@ function getMethods(swagger, path, httpMethod) {
             // temporary thing for proj-gen dev
             console.log(req);
             
-            let result = await ${controller}Db.${camelize(method.operationId)}(${parametersController.join(', ')});
+            let result = await ${camelize(controller)}Db.${camelize(method.operationId)}(${parametersController.join(', ')});
             
             console.log(result);
             let payload = ${resPayload};
@@ -259,6 +340,8 @@ function getMethods(swagger, path, httpMethod) {
 
     let serviceMethod = `    /**
      * ${method.summary}
+     * ${parameters.join('\n*')}
+     * ${integrationTestParams.join('\n     * ')}
      */
     async ${camelize(method.operationId)}(${parameters.join(', ')}) {
         let result;
@@ -268,17 +351,19 @@ function getMethods(swagger, path, httpMethod) {
 `;
 
 
-
+    // has to be menu: { menu: MenuType , titles: [ TitleType ]}
     let integrationMethod = `    it('${method.operationId}', async ()=>{
-        let result = await dao.${camelize(method.operationId)}('${parameters.join('\', \'')}');
+        let result = await dao.${camelize(method.operationId)}(${integrationTestParams.join(', ')});
         expect(result).to.exist();
     });
 `;
 
 
-
+    // TODO implement headers and formData
+    // if in path - put in path                header: put in header                    query
+    // path = '' + id    /order/1               api.headers["api_key"] = 1 ???          ?paramName=value
     let functionalMethod = `    it('${method.operationId}', async ()=>{
-        let result = await api.${httpMethod}('${method}',{${parameters.join(': \'foobar\', ')}});
+        let result = await api.${httpMethod}('${path.replace(/\/{\w*}/g, '')}${testPath.replace(/"/g,'')}',${functionalTestParams});
         result = result.data;
         expect(result).to.exist();
     });

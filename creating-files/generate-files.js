@@ -3,13 +3,17 @@ const {getHeaders, getFrontHeader} = require('./headers')
 const getMethods = require('./methods')
 const createPackage = require('./create-package')
 const {camelize,kebabise,fupper} = require('../change-case');
-const {generateTypesFile} = require('./manageTypes');
+const {generateTypesFile, getProperties} = require('./manageTypes');
 const createComponents = require('./creating-components');
 const dockerFile = require("./docker-file");
 
 async function generateFiles(swagger, options) {
 
     createPackage(swagger, options);
+
+    Object.keys(swagger.definitions).forEach(key => { // generate examples
+        getProperties(swagger.definitions[key].properties, '', '', swagger);
+    });
 
     let files = {}
     let checkForDuplicates = {};

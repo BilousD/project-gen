@@ -1,4 +1,5 @@
-const fs = require('fs');
+function createConfig(options) {
+    return `const fs = require('fs');
 const { resolve } = require('path');
 const CONFIG = {
     logger: {
@@ -11,9 +12,9 @@ const CONFIG = {
     db: {
         host: 'localhost',
         port: 5432,
-        user: 'db',
-        password: 'db',
-        database: 'db',
+        user: '${(options.dbInfo.user)?options.dbInfo.user:'db'}',
+        password: '${(options.dbInfo.dbName)?options.dbInfo.dbName:'db'}',
+        database: '${(options.dbInfo.dbPassword)?options.dbInfo.dbPassword:'db'}',
     }
 };
 
@@ -34,3 +35,6 @@ let getConfig = function (){
     return getConfig();
 };
 module.exports = {getConfig};
+`;
+}
+module.exports = createConfig;

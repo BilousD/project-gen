@@ -8,6 +8,7 @@ const path = require('path');
 const generateFiles = require('./creating-files/generate-files');
 
 const util = require('util');
+const createConfig = require("./creating-files/create-config-file");
 const exec = util.promisify(require('child_process').exec);
 const ncp = require('ncp').ncp;
 ncp.limit = 16;
@@ -60,7 +61,7 @@ async function main() {
         // creating project
         console.log('Generating frontend project');
         try {
-            await generateAngular(options);
+            //await generateAngular(options);
         }catch (err) {
             console.error('Frontend project generation failed:');
             console.error(err);
@@ -143,6 +144,14 @@ async function generateAngular(options) {
         fs.writeFileSync(`./${options.frontendProject.name}/package.json`, JSON.stringify(packageFile,null, 2), 'utf8');
     } catch (e) {
         console.error('Failed to write frontend package.json file');
+        console.error(e);
+    }
+    // writing config.js
+    try {
+        let configFileData = createConfig(options);
+        fs.writeFileSync(`./${options.backendProject.name}/config.js`, JSON.stringify(configFileData,null, 2), 'utf8');
+    } catch (e) {
+        console.error('Failed to write frontend config.js file');
         console.error(e);
     }
 }

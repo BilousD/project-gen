@@ -51,7 +51,7 @@ async function createComponents(swagger, options) {
                 service = fupper(swagger.paths[path]['x-swagger-router-controller']) + 'Service';
             }
 
-            await exec(`cd ${options.frontendProject.name} && ng generate component ${kebabise(path)}-table --flat`);
+            // await exec(`cd ${options.frontendProject.name} && ng generate component ${kebabise(path)}-table --flat`);
 
             const componentFileData = component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls);
             fs.writeFileSync(`./${options.frontendProject.name}/src/app/${kebabise(path)}-table.component.ts`, componentFileData, 'utf8');
