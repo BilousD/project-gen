@@ -117,10 +117,6 @@ function getMethods(swagger, path, httpMethod) {
                     return checkDuplicates[p];
                 }
                 checkDuplicates[p] = '$'+i++;
-                if (method.parameters) {
-                    parametersController.push(`req.swagger.params.${method.parameters.map(e => e.name).join(".value, req.swagger.params.")}.value`);
-                    parameters.push(method.parameters.map(e => e.name));
-                }
                 return checkDuplicates[p];
             });
             queries.push(`log.debug(\`${method.operationId} with query "${query}"\`);
@@ -132,6 +128,10 @@ function getMethods(swagger, path, httpMethod) {
             }
         } else {
             processQuery(method['x-query']);
+        }
+        if (method.parameters) {
+            parametersController.push(`req.swagger.params.${method.parameters.map(e => e.name).join(".value, req.swagger.params.")}.value`);
+            parameters.push(method.parameters.map(e => e.name));
         }
     } else if (method.parameters) {
         for (let parameter of method.parameters) {
@@ -188,13 +188,34 @@ function getMethods(swagger, path, httpMethod) {
             // new type = searchFor()
         // TODO use _.get instead
         if(method.responses[200]['x-payload'] || true) {
-            // let payload = method.responses[200]['x-payload'];
-            let payload = 'data'
-            map = `.pipe( map(resp => resp.${payload}) )`;
+            let payload = _.get(method, 'responses[200][\'x-payload\']', '');
+            // let payload = 'data'
+            if(payload){
+                map = `.pipe( map(resp => resp.${payload}) )`;
+            }
+
 
             function recurse(object, recursePath) { // TODO if payload 'data.menu.id' and menu is '$ref' it can cause error
+                // if data.id, and data is object, data.properties.id
                 for (let i = 0; i < recursePath.length; i++) {
-                    object = object[recursePath[i]];
+                    let temp = object[recursePath[i]];
+                    if(temp) {
+                        object = temp;
+                    } else {
+                        temp = object.properties[recursePath[i]];
+                        if(temp) {
+                            object = temp;
+                        } else {
+                            if(object['$ref']){ // TODO could possibly be error?
+                                temp = _.get(_.get(swagger, object['$ref'].replace('#/', '').split('/')), 'properties');
+                                if(temp) {
+                                    object = temp;
+                                } else {
+                                    console.error('could not find payload');
+                                }
+                            }
+                        }
+                    }
                 }
                 return object;
             }
@@ -213,7 +234,12 @@ function getMethods(swagger, path, httpMethod) {
                 let recPath = payload.split('.');
                 recursion = recurse(method.responses[200].schema.properties, recPath);
             }
-            payloadType = observableType(swagger, recursion);
+            if(recursion){
+                payloadType = observableType(swagger, recursion);
+            }else {
+                console.error(`Error: failed to find payload for ${method.operationId}, ${method.responses[200].schema['$ref']}`);
+            }
+
 
             let payloadPath = payload.split('.');
             let tempPayload = 'result';
@@ -340,7 +366,7 @@ function getMethods(swagger, path, httpMethod) {
 
     let serviceMethod = `    /**
      * ${method.summary}
-     * ${parameters.join('\n*')}
+     * ${parameters.join('\n     *')}
      * ${integrationTestParams.join('\n     * ')}
      */
     async ${camelize(method.operationId)}(${parameters.join(', ')}) {

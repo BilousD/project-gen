@@ -61,7 +61,7 @@ async function main() {
         // creating project
         console.log('Generating frontend project');
         try {
-            await generateAngular(options);
+            // await generateAngular(options);
         }catch (err) {
             console.error('Frontend project generation failed:');
             console.error(err);
