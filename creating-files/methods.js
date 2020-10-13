@@ -345,15 +345,8 @@ function getMethods(swagger, path, httpMethod) {
     async ${camelize(method.operationId)}(req, res) {
         try {
             log.debug('controller ${method.operationId}'${(parametersController)?', ' + parametersController.join(', ') : ''});
-            
-            // temporary thing for proj-gen dev
-            console.log(req);
-            
             let result = await ${camelize(controller)}Db.${camelize(method.operationId)}(${parametersController.join(', ')});
-            
-            console.log(result);
             let payload = ${resPayload};
-            
             res.writeHead(200, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'});
             res.end(JSON.stringify(payload));
         } catch (err) {
