@@ -149,7 +149,7 @@ async function generateAngular(options) {
     // writing config.js
     try {
         let configFileData = createConfig(options);
-        fs.writeFileSync(`./${options.backendProject.name}/config.js`, JSON.stringify(configFileData,null, 2), 'utf8');
+        fs.writeFileSync(`./${options.backendProject.name}/config.js`, configFileData, 'utf8');
     } catch (e) {
         console.error('Failed to write frontend config.js file');
         console.error(e);
