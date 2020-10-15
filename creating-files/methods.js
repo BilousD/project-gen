@@ -107,10 +107,10 @@ function getMethods(swagger, path, httpMethod) {
     // let result = await api.${httpMethod}('${method}',{${parameters.join(': \'foobar\', ')}});
     if (method['x-query']) {
         queries = [];
-        let i = 1;
-        let checkDuplicates = {};
         function processQuery(query) {
-            query = query.replace(/:[\w.]*/g, (fld)=>{
+            let checkDuplicates = {};
+            let i = 1;
+            let newQuery = query.replace(/:[\w.]*/g, (fld)=>{
                 const p = fld.replace(':', '');
 
                 if(checkDuplicates[p]) {
@@ -120,7 +120,7 @@ function getMethods(swagger, path, httpMethod) {
                 return checkDuplicates[p];
             });
             queries.push(`log.debug(\`${method.operationId} with query "${query}"\`);
-        result = await pgPool.query(\`${query}\`, [${Object.keys(checkDuplicates).join(', ')}]);`);
+        result = await pgPool.query(\`${newQuery}\`, [${Object.keys(checkDuplicates).join(', ')}]);`);
         }
         if(_.isArray(method['x-query'])){
             for (let query of method['x-query']) {
