@@ -57,11 +57,13 @@ dbInfo:
 ```
 
 ##### Swagger tags
+`x-swagger-router-controller` necessary for project making, so be sure to put it.
 Custom swagger tags used in project creation:
 `x-query` for queries, example `delete from users where login = :login` , where 'login' is a name of a swagger parameter
 Since this is made for PostgreSQL, `:login` will be transformed into `$1`
 If service function recieves an object, write object's parameter instead, `delete from users where id = :login.id`, 
 so the function will look like `function example(login) { db.query('delete from users where id = $1', [login.id]) }`
+You can use `[]` to mark an array to iterate it. `:body.logins[].id` will become `for (let login of body.logins)`, only one array per query for now.
 ``` yaml
 paths:
     /example-path:

@@ -110,8 +110,38 @@ function getMethods(swagger, path, httpMethod) {
         function processQuery(query) {
             let checkDuplicates = {};
             let i = 1;
-            let newQuery = query.replace(/:[\w.]*/g, (fld)=>{
-                const p = fld.replace(':', '');
+            let multiple = false;
+            let forItem = '';
+            let forArgs = [];
+            // replacing insert values (:pets[].id, :urls[])
+            let newQuery = query.replace(/:[\w\[\].]*/g, (fld)=>{
+                // const p = fld.replace(':', '').split('[]');
+                const p = fld.replace(':', '')
+                // split into only two for now, only one for(), TODO queries with multidimensional arrays
+                let a = [];
+                if(p.indexOf("[]") > 0) {
+                    a = p.split('[]');
+                    if(a.length > 2) throw new Error(`Multiple arrays in single query is not supported for now, ${query}`);
+                    let item = a[0].split('.').pop();
+                    if(item.length < 2) {
+                        item += 'Temp';
+                    } else {
+                        item = item.slice(0,item.length-1);
+                    }
+                    if(checkDuplicates[item+a[1]]) {
+                        return checkDuplicates[item+a[1]];
+                    } else {
+                        if(multiple && (forItem && (item !== forItem))) {
+                            throw new Error(`Multiple arrays in single query is not supported for now, ${query}`);
+                        }
+                    }
+                    multiple = true;
+                    forArgs = a;
+                    forItem = item;
+                    checkDuplicates[forItem+a[1]] = '$'+i++;
+                    return checkDuplicates[forItem+a[1]];
+                }
+
 
                 if(checkDuplicates[p]) {
                     return checkDuplicates[p];
@@ -119,8 +149,15 @@ function getMethods(swagger, path, httpMethod) {
                 checkDuplicates[p] = '$'+i++;
                 return checkDuplicates[p];
             });
-            queries.push(`log.debug(\`${method.operationId} with query "${query}"\`);
+            if(multiple) {
+                queries.push(`for(let ${forItem} of ${forArgs[0]}) {
+        log.debug(\`${method.operationId} with query "${query}"\`);
+        result = await pgPool.query(\`${newQuery}\`, [${Object.keys(checkDuplicates).join(', ')}]);
+    }`);
+            } else {
+                queries.push(`log.debug(\`${method.operationId} with query "${query}"\`);
         result = await pgPool.query(\`${newQuery}\`, [${Object.keys(checkDuplicates).join(', ')}]);`);
+            }
         }
         if(_.isArray(method['x-query'])){
             for (let query of method['x-query']) {
@@ -187,7 +224,7 @@ function getMethods(swagger, path, httpMethod) {
 
             // new type = searchFor()
         // TODO use _.get instead
-        if(method.responses[200]['x-payload'] || true) {
+        if(method.responses[200]['x-payload']) {
             let payload = _.get(method, 'responses[200][\'x-payload\']', '');
             // let payload = 'data'
             if(payload){
@@ -340,7 +377,7 @@ function getMethods(swagger, path, httpMethod) {
 
     let controllerMethod = `    /**
      * ${method.summary}
-     * Returns: ${method.responses[200].description}
+     * Returns: ${_.get(method, 'responses[200].description', '')}
      */
     async ${camelize(method.operationId)}(req, res) {
         try {

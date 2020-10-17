@@ -18,6 +18,7 @@ async function createComponents(swagger, options) {
             let payload = _.get(swagger.paths, `[${path}].get.responses[200][x-payload]`, '').split('.');
 
             // let payload = 'data'
+            if(swagger.paths[path].get.responses[200])
             if(swagger.paths[path].get.responses[200].schema['$ref']){
                 let obj = _.get(swagger, swagger.paths[path].get.responses[200].schema['$ref'].replace('#/', '').split('/'));
                 // change, because somewhere in path could be $ref
@@ -39,10 +40,49 @@ async function createComponents(swagger, options) {
                         type = obj['$ref'].split('/').pop();
                 }
             } else { // TODO check this path
-                type = _.get(swagger.paths[path].get.responses[200].schema.properties, payload)['$ref'].split('/').pop();
+                // TODO there could be a lot of errors
+                switch (swagger.paths[path].get.responses[200].schema.type) {
+                    case 'object':
+                        if(swagger.paths[path].get.responses[200].schema.properties) {
+                            type = _.get(_.get(swagger.paths[path].get.responses[200].schema.properties, payload), '[$ref]', 'object').split('/').pop();
+                        } else {
+                            type = 'object';
+                        }
+                        break;
+                    case 'array':
+                        if(swagger.paths[path].get.responses[200].schema.items){
+                            type = _.get(swagger.paths[path].get.responses[200].schema.items, '[$ref]', 'array').split('/').pop();
+                        } else {
+                            type = 'array';
+                        }
+                        break;
+                    default:
+                        type = swagger.paths[path].get.responses[200].schema.type;
+                }
             }
 
-            const {newItem,controls,columns} = getParametersFromPayload(swagger,type);
+            let o = {};
+            switch (type) {
+                case 'object':
+                case 'array':
+                case 'string':
+                case 'number':
+                case '':
+                    o.newItem = [];
+                    o.columns = '';
+                    o.controls = '';
+                    break;
+                default:
+                    try {
+                        o = getParametersFromPayload(swagger,type);
+                    } catch (e) {
+                        console.error(`\nERROR! Failed to get parameters for components, received type ${type}`)
+                        console.error(e)
+                        o.newItem = [];
+                        o.columns = '';
+                        o.controls = '';
+                    }
+            }
 
             // for imports, i think it uses x-swagger-router-controller for multiple services
             let service = '';
@@ -52,9 +92,14 @@ async function createComponents(swagger, options) {
                 service = fupper(swagger.paths[path]['x-swagger-router-controller']) + 'Service';
             }
 
-            await exec(`cd ${options.frontendProject.name} && ng generate component ${kebabise(path)}-table --flat`);
+            try {
+                await exec(`cd ${options.frontendProject.name} && ng generate component ${kebabise(path)}-table --flat`);
+            } catch (e) {
+                console.error('Generating components with ng error, could be something not very important\n\n')
+                console.error(e)
+            }
 
-            const componentFileData = component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls);
+            const componentFileData = component(service,type,get,post,put,deleteMethod,path,o.newItem,o.columns,o.controls);
             fs.writeFileSync(`./${options.frontendProject.name}/src/app/${kebabise(path)}-table.component.ts`, componentFileData, 'utf8');
 
             const htmlFileData = getHTML();
@@ -259,13 +304,7 @@ export class ${fupper(camelize(path))}TableComponent implements OnInit {
       allColumns: [ ${columns} ],
         
       formConfiguration: {
-        options: {  // TODO change ui-lib if needed
-          // converterToForm: (v) => {
-          //   return {id: v.id, fieldName: v.fieldName, fieldType: v.fieldType};
-          //   },
-          // converterFromForm: (v) => {
-          //   return {id: v.id, fieldName: v.fieldName, fieldType: v.fieldType};
-          // },
+        options: { },
           readonly: false,
           appearance: 'standard',
           formClass: 'form-class'
