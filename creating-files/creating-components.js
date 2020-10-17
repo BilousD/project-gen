@@ -304,7 +304,7 @@ export class ${fupper(camelize(path))}TableComponent implements OnInit {
       allColumns: [ ${columns} ],
         
       formConfiguration: {
-        options: { },
+        options: {
           readonly: false,
           appearance: 'standard',
           formClass: 'form-class'

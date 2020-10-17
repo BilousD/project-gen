@@ -363,7 +363,11 @@ function getMethods(swagger, path, httpMethod) {
             integrationTestParams.push(JSON.stringify(testParams));
             switch(param.in) {
                 case 'query':
-                    testPath += `?${param.name}=${JSON.stringify(testParams)}`;
+                    if(testPath) {
+                        testPath += `&${param.name}=${JSON.stringify(testParams)}`;
+                    } else {
+                        testPath += `?${param.name}=${JSON.stringify(testParams)}`;
+                    }
                     break;
                 case 'path':
                     testPath += '/'+JSON.stringify(testParams);
