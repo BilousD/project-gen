@@ -434,8 +434,28 @@ function getMethods(swagger, path, httpMethod) {
         return this.http.${httpMethod}${type}(API_URL + '${path}', this.httpOptions)${map};
     }\n`;
 
-    return {controllerMethod, serviceMethod, integrationMethod, functionalMethod, serviceFront,
-        importTypes: [type.replace(/<*>*\[*]*/g, ''),payloadType.replace(/<*>*\[*]*/g, '')]};
+    let importTypes = [];
+    switch (type.replace(/<*>*\[*]*/g, '')) {
+        case 'object':
+        case 'array':
+        case 'string':
+        case 'number':
+        case '':
+            break;
+        default:
+            importTypes.push(type.replace(/<*>*\[*]*/g, ''));
+    }
+    switch(payloadType.replace(/<*>*\[*]*/g, '')) {
+        case 'object':
+        case 'array':
+        case 'string':
+        case 'number':
+        case '':
+            break;
+        default:
+            importTypes.push(payloadType.replace(/<*>*\[*]*/g, ''));
+    }
+    return {controllerMethod, serviceMethod, integrationMethod, functionalMethod, serviceFront, importTypes};
 }
 
 module.exports = getMethods;

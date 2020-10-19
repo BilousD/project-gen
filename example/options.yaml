@@ -1,0 +1,43 @@
+# path to swagger file, example: "swaggerFile: ./swagger.yaml"
+swaggerFile: ./swagger.yaml
+# path to database file, example: "databaseFile: ./db.sql"
+databaseFile: ./petstore.sql
+backendProject:
+  # When false, skips creation of frontend project
+  generate: true
+  name: petstore-bak
+  # redirects angular process output, instead of dumping it
+  output: false
+frontendProject:
+  # When false, skips creation of frontend project
+  generate: true
+  # When true, installs globally @angular/cli
+  # @angular/cli required for generation of frontend project
+  angularCLI: false
+
+  # The name of the new workspace and initial project.
+  name: petstore-app
+  # When true, generates a routing module for the initial project.
+  angularRouting: true
+  # The file extension or preprocessor to use for style files.
+  style: sass
+  # arguments for 'ng new' command, overrides other arguments, consider using this with "output: true"
+  # arguments: '--help'
+  # Redirects angular process output, instead of dumping it
+
+  output: true
+  # When true, installs @angular/material
+  material: true
+  # When false, multiple services will be created, based on 'x-swagger-router-controller'
+  oneService: true
+# package.json information. When "inSwagger: true", takes information from swagger file, but editing is needed
+projectInfo:
+  name: 'Pet store'
+  version: 0.1
+  description: 'Project generated from an edited sample swagger file'
+  author: ''
+  license:
+dbInfo:
+  user: db
+  dbName: db
+  dbPassword: db

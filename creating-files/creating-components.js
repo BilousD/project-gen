@@ -15,6 +15,7 @@ async function createComponents(swagger, options) {
             const {post,put,deleteMethod} = getServiceMethods(swagger,path);
 
             let type = '';
+            let importType = '';
             let payload = _.get(swagger.paths, `[${path}].get.responses[200][x-payload]`, '').split('.');
 
             // let payload = 'data'
@@ -62,15 +63,24 @@ async function createComponents(swagger, options) {
             }
 
             let o = {};
+            importType = type;
             switch (type) {
-                case 'object':
-                case 'array':
-                case 'string':
-                case 'number':
                 case '':
+                    type = '[]';
                     o.newItem = [];
                     o.columns = '';
                     o.controls = '';
+                    importType = '';
+                    break;
+                case 'array':
+                    type = '[]';
+                case 'object':
+                case 'string':
+                case 'number':
+                    o.newItem = [];
+                    o.columns = '';
+                    o.controls = '';
+                    importType = '';
                     break;
                 default:
                     try {
@@ -81,6 +91,7 @@ async function createComponents(swagger, options) {
                         o.newItem = [];
                         o.columns = '';
                         o.controls = '';
+                        importType = '';
                     }
             }
 
@@ -98,8 +109,7 @@ async function createComponents(swagger, options) {
                 console.error('Generating components with ng error, could be something not very important\n\n')
                 console.error(e)
             }
-
-            const componentFileData = component(service,type,get,post,put,deleteMethod,path,o.newItem,o.columns,o.controls);
+            const componentFileData = component(service,type,get,post,put,deleteMethod,path,o.newItem,o.columns,o.controls,importType);
             fs.writeFileSync(`./${options.frontendProject.name}/src/app/${kebabise(path)}-table.component.ts`, componentFileData, 'utf8');
 
             const htmlFileData = getHTML();
@@ -136,11 +146,19 @@ function getParametersFromPayload(swagger, type) {   // type should be already  
     let controls = '';
     // type from payload    payload='data' => response[200][$ref] = PetsType => PetsType.data => type
     Object.keys(swagger.definitions[type].properties).forEach(param => {
-        if(param !== '$ref') {
+        if(param !== '$ref' && param !== 'example') {
             // TODO change object push to have insides
+            // TODO change 'example', use generated examples
             switch (swagger.definitions[type].properties[param].type) {
                 case 'string':
-                    newItem.push(`${param}: ''`);
+                    if(swagger.definitions[type].properties[param].enum) {
+                        newItem.push(`${param}: 0`);
+                    } else {
+                        newItem.push(`${param}: ''`);
+                    }
+                    break;
+                case 'boolean':
+                    newItem.push(`${param}: false`);
                     break;
                 case 'integer':
                     newItem.push(`${param}: 0`);
@@ -151,8 +169,13 @@ function getParametersFromPayload(swagger, type) {   // type should be already  
                 case 'object':
                     newItem.push(`${param}: {}`);
                     break;
+                default:
+                    if(swagger.definitions[type].properties[param]['$ref']) {
+                        let o = _.get(swagger, swagger.definitions[type].properties[param]['$ref'].replace('#/', '').split('/'));
+                        newItem.push(`${param}: ${JSON.stringify(o.properties.example)}`);
+                    }
             }
-            columns += `makeColumnInfo('${param}', '${fupper(param)}', true, false),`
+            columns += `makeColumnInfo('${param}', '${fupper(param)}', true, false),\n`
             let config = 'inputFieldConfiguration(EnumInputType.text)';
             if(swagger.definitions[type].properties[param].type === 'object') {
                 config = 'textareaFieldConfiguration()';
@@ -230,7 +253,7 @@ function getServiceMethods(swagger, path) {
 
 // TODO Observable types for delete, insert, update
 // TODO change getId
-function component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls) {
+function component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls,importType) {
     // square bracket for my ide
     const squareBracket = '<';
 
@@ -247,7 +270,7 @@ import {${service}} from './basic.service';
 import {MatDialog} from '@angular/material/dialog';
 import {Observable} from 'rxjs';
 // from x-payload
-import {${type}} from '../common/types';
+import {${importType}} from '../common/types';
 
 class DataSource implements UIDataSource${squareBracket}${type}>{
   observable: ObservableWithRefresh${squareBracket}${type}>;

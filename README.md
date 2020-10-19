@@ -81,3 +81,13 @@ responses:
         description: 
         schema:
 ```
+
+#### Example
+In `example` folder, there is modified `swagger.yaml` file from https://editor.swagger.io/
+`petstore.sql` and `options.yaml` are created manually. 
+Use `swagger-project-gen options.yaml` to generate almost working project.  
+
+
+##### Things that is currently unavailable
+Https,
+Multiple arrays in queries
