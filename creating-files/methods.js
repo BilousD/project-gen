@@ -373,6 +373,9 @@ function getMethods(swagger, path, httpMethod) {
                     testPath += '/'+JSON.stringify(testParams);
                     break;
                 case 'body':
+                    if (!functionalTestParams) {
+                        functionalTestParams = ',';
+                    }
                     functionalTestParams += JSON.stringify(testParams);
                     break;
             }
@@ -423,16 +426,36 @@ function getMethods(swagger, path, httpMethod) {
     // if in path - put in path                header: put in header                    query
     // path = '' + id    /order/1               api.headers["api_key"] = 1 ???          ?paramName=value
     let functionalMethod = `    it('${method.operationId}', async ()=>{
-        let result = await api.${httpMethod}('${path.replace(/\/{\w*}/g, '')}${testPath.replace(/"/g,'')}',${functionalTestParams});
+        let result = await api.${httpMethod}('${path.replace(/\/{\w*}/g, '')}${testPath.replace(/"/g,'')}'${functionalTestParams});
         result = result.data;
         expect(result).to.exist();
     });
 `;
 
 // TODO something here
-    let serviceFront = `    ${camelize(method.operationId)}(): Observable${payloadType}{
-        return this.http.${httpMethod}${type}(API_URL + '${path}', this.httpOptions)${map};
+    // TODO REPLACE {} IN PATH WITH PARAMETER
+    let pathParam = path;
+    pathParam.replace(/{\w*}/g, (str) => {
+        method.parameters.forEach(p => {
+            if (p.name === str) {
+                if (p['x-path-name']) {
+                    return `\${row.${p['x-path-name']}}`;
+                } else {
+                    return '$' + str;
+                }
+            }
+        });
+    });
+    if (httpMethod !== 'get' || httpMethod !== 'delete') {
+        let serviceFront = `    ${camelize(method.operationId)}(parameters?): Observable${payloadType}{
+        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}\`, parameters, this.httpOptions)${map};
     }\n`;
+    } else {
+        let serviceFront = `    ${camelize(method.operationId)}(parameters?): Observable${payloadType}{
+        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}\`, this.httpOptions)${map};
+    }\n`;
+    }
+
 
     let importTypes = [];
     switch (type.replace(/<*>*\[*]*/g, '')) {

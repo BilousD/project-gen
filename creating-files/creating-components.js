@@ -212,40 +212,62 @@ function getServiceMethods(swagger, path) {
     // Found something to display
     let post = _.get(swagger.paths, [path,'post','operationId']);
     // If current path doesn't have post method, upper path level could have it     ???
+    // search somewhere POST
+    if (!post) {
+        post = searchForMethod('post', swagger, path);
+    }
     if(!post) {
-        // search somewhere POST
         // if still not found
         post = 'new Observable(subscriber => { subscriber.complete() })'
     } else {
         // TODO put something in brackets everywhere
-        post = `this.service.${camelize(post)}()`;
+        // post.parameters
+        // if (x-query)  change ':body.status[]' to status: []
+        post = `this.service.${camelize(post)}(row)`;
     }
 
     let put = _.get(swagger.paths, [path,'put','operationId']);
+    if (!put) {
+        put = searchForMethod('put', swagger, path);
+    }
     if(!put) { // if no put, use post
         put = post;
     } else {
-        put = `this.service.${camelize(put)}()`;
+        put = `this.service.${camelize(put)}(row)`;
     }
 
     let deleteMethod = _.get(swagger.paths, [path,'delete','operationId']);
-    if (!deleteMethod) { // probably always true
-        // check for '/path/something'
-        // TODO change search, because it can be something like '/pet/delete-something-else', but delete '/pet/{id}' present
-        deleteMethod = _.get(swagger.paths, [_.findKey(_.pickBy(swagger.paths,
-            (value, key) => key.startsWith(path+'/{')), 'delete')
-            ,'delete','operationId']);
-
+    // if (!deleteMethod) { // probably always true
+    //     // check for '/path/something'
+    //     // TODO change search, because it can be something like '/pet/delete-something-else', but delete '/pet/{id}' present
+    //     deleteMethod = _.get(swagger.paths, [_.findKey(_.pickBy(swagger.paths,
+    //         (value, key) => key.startsWith(path+'/{')), 'delete')
+    //         ,'delete','operationId']);
+    //
+    // }
+    // /path/{id}
+    if (!deleteMethod) {
+        deleteMethod = searchForMethod('delete', swagger, path);
     }
     // if no delete found after searching
     if(!deleteMethod) {
         deleteMethod = 'new Observable(subscriber => { subscriber.complete() })';
     } else {
-        deleteMethod = `this.service.${camelize(deleteMethod)}()`;
+        deleteMethod = `this.service.${camelize(deleteMethod)}(row)`;
     }
     return {post,put,deleteMethod};
 }
-
+function searchForMethod(methodName, swagger, path) {
+    let upperPath = path;
+    let m;
+    while (!(m || upperPath.length < 1)) {
+        upperPath = upperPath.split('/');
+        upperPath.pop();
+        upperPath = upperPath.join('/');
+        m = _.get(swagger.paths, [upperPath, methodName,'operationId']);
+    }
+    return m;
+}
 // one component per path.get (  /path/{id}  should not get new component  )
 // TODO HOW TO GET  "DELETE INSERT UPDATE SELECT"  if only  "get, post" is present in /path/ , and what needed is in /path/{id}
 // TODO remove {id} with regex => what is needed, but cant call it
@@ -256,7 +278,7 @@ function getServiceMethods(swagger, path) {
 function component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls,importType) {
     // square bracket for my ide
     const squareBracket = '<';
-
+// TODO use filter?
 return `import {Component, OnInit} from '@angular/core';
 import {
   BuilderFieldControlConfiguration,
@@ -281,7 +303,11 @@ class DataSource implements UIDataSource${squareBracket}${type}>{
 
   delete(rows: ${type}[]): Observable${squareBracket}any> {
                     // /path/ delete
-    return ${deleteMethod};
+    const promises: Promise${squareBracket}any>[] = [];
+    for (const row of rows) {
+        ${deleteMethod};
+    }
+    return;
   }
 
   insert(row: ${type}): Observable${squareBracket}any> {
