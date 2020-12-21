@@ -120,13 +120,21 @@ function getMethods(swagger, path, httpMethod) {
                 // split into only two for now, only one for(), TODO queries with multidimensional arrays
                 let a = [];
                 if(p.indexOf("[]") > 0) {
+                    // body[].id => [body, .id]
                     a = p.split('[]');
+                    // body[].items[] => error
                     if(a.length > 2) throw new Error(`Multiple arrays in single query is not supported for now, ${query}`);
+                    // body.items[] => [body, items] => items
                     let item = a[0].split('.').pop();
+                    // items[] => item, body[] => b
                     if(item.length < 2) {
                         item += 'Temp';
                     } else {
-                        item = item.slice(0,item.length-1);
+                        if (item.slice(-1) === 's') {
+                            item = item.slice(0, -1);
+                        } else {
+                            item = item.slice(0, 1);
+                        }
                     }
                     if(checkDuplicates[item+a[1]]) {
                         return checkDuplicates[item+a[1]];
@@ -446,12 +454,13 @@ function getMethods(swagger, path, httpMethod) {
             }
         });
     });
-    if (httpMethod !== 'get' || httpMethod !== 'delete') {
-        let serviceFront = `    ${camelize(method.operationId)}(parameters?): Observable${payloadType}{
-        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}\`, parameters, this.httpOptions)${map};
+    let serviceFront = '';
+    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+        serviceFront = `    ${camelize(method.operationId)}(body): Observable${payloadType}{
+        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}\`, body, this.httpOptions)${map};
     }\n`;
     } else {
-        let serviceFront = `    ${camelize(method.operationId)}(parameters?): Observable${payloadType}{
+        serviceFront = `    ${camelize(method.operationId)}(parameters?): Observable${payloadType}{
         return this.http.${httpMethod}${type}(API_URL + \`${pathParam}\`, this.httpOptions)${map};
     }\n`;
     }
