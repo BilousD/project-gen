@@ -81,7 +81,7 @@ responses:
         description: 
         schema:
 ```
-`x-path` for parameters stored in a path that have a name different from value in corresponding type
+`x-param-name` for parameters stored in a path or query that have a name different from value of corresponding type
 ``` yaml
 paths:
     /example-path/{petId}:
@@ -91,7 +91,7 @@ paths:
             parameters:
             - name: "petId"
               in: "path"
-              x-path-name: "id"
+              x-param-name: "id"
 ```
   
   

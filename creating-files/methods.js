@@ -440,28 +440,55 @@ function getMethods(swagger, path, httpMethod) {
     });
 `;
 
-// TODO something here
-    // TODO REPLACE {} IN PATH WITH PARAMETER
     let pathParam = path;
-    pathParam.replace(/{\w*}/g, (str) => {
+    let query = '';
+    pathParam = pathParam.replace(/{\w*}/g, (str) => {
         method.parameters.forEach(p => {
             if (p.name === str) {
-                if (p['x-path-name']) {
-                    return `\${row.${p['x-path-name']}}`;
+                if (p['x-param-name']) {
+                    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+                        return `\${body.${p['x-param-name']}}`;
+                    } else {
+                        return `\${parameters.${p['x-param-name']}}`;
+                    }
                 } else {
-                    return '$' + str;
+                    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+                        return '${body.' + str.slice(1);
+                    } else {
+                        return '${parameters.' + str.slice(1);
+                    }
+                }
+            }
+            if (p.in === 'query') {
+                if (p['x-param-name']) {
+                    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+                        query += p.name + '=' + '${body.' + p['x-param-name'] + '}';
+                    } else {
+                        query += p.name + '=' + '${parameters.' + p['x-param-name'] + '}';
+                    }
+                } else {
+                    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+                        query += p.name + '=' + '${body.' + p.name + '}';
+                    } else {
+                        query += p.name + '=' + '${parameters.' + p.name + '}';
+                    }
+
                 }
             }
         });
     });
+    if (query) {
+        query = '?' + query;
+    }
+
     let serviceFront = '';
     if (httpMethod !== 'get' && httpMethod !== 'delete') {
         serviceFront = `    ${camelize(method.operationId)}(body): Observable${payloadType}{
-        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}\`, body, this.httpOptions)${map};
+        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}${query}\`, body, this.httpOptions)${map};
     }\n`;
     } else {
         serviceFront = `    ${camelize(method.operationId)}(parameters?): Observable${payloadType}{
-        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}\`, this.httpOptions)${map};
+        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}${query}\`, this.httpOptions)${map};
     }\n`;
     }
 

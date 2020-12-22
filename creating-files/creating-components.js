@@ -303,7 +303,6 @@ class DataSource implements UIDataSource${squareBracket}${type}>{
 
   delete(rows: ${type}[]): Observable${squareBracket}any> {
                     // /path/ delete
-    const promises: Promise${squareBracket}any>[] = [];
     for (const row of rows) {
         ${deleteMethod};
     }
@@ -332,7 +331,7 @@ class DataSource implements UIDataSource${squareBracket}${type}>{
 @Component({
   selector: 'app-${kebabise(path)}-table',
   templateUrl: './${kebabise(path)}-table.component.html',
-  styleUrls: ['./${kebabise(path)}-table.component.css'] // TODO change to ...
+  styleUrls: ['./${kebabise(path)}-table.component.css']
 })
 export class ${fupper(camelize(path))}TableComponent implements OnInit {
   tableConfiguration: EditTableConfiguration${squareBracket}${type}>;
@@ -343,7 +342,7 @@ export class ${fupper(camelize(path))}TableComponent implements OnInit {
     this.tableConfiguration = {
       readonly: false,
       dataSource: new DataSource(this.service),
-                        // x-payload => everything in type TODO if object or array or number change to corresponding blanks
+
       newItem: () => ({${newItem.join(', ')}}),
       // TODO change to ... ?
       getId: (r) => '' + r.id,
