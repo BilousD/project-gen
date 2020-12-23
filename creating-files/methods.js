@@ -174,7 +174,7 @@ function getMethods(swagger, path, httpMethod) {
         } else {
             processQuery(method['x-query']);
         }
-        if (method.parameters) {
+        if (method.parameters && method.parameters.length > 0) {
             parametersController.push(`req.swagger.params.${method.parameters.map(e => e.name).join(".value, req.swagger.params.")}.value`);
             parameters.push(method.parameters.map(e => e.name));
         }

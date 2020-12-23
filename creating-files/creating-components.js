@@ -247,7 +247,7 @@ function getServiceMethods(swagger, path) {
     // }
     // /path/{id}
     if (!deleteMethod) {
-        deleteMethod = searchForMethod('delete', swagger, path);
+        deleteMethod = searchForMethod('delete', swagger, path, true);
     }
     // if no delete found after searching
     if(!deleteMethod) {
@@ -257,14 +257,28 @@ function getServiceMethods(swagger, path) {
     }
     return {post,put,deleteMethod};
 }
-function searchForMethod(methodName, swagger, path) {
+function searchForMethod(methodName, swagger, path, isDelete) {
     let upperPath = path;
     let m;
+    if (isDelete) {
+        Object.keys(swagger.paths).forEach(p => {
+            if (p.startsWith(upperPath)) {
+                m = _.get(swagger.paths, [p, methodName, 'operationId']);
+            }
+        });
+    }
     while (!(m || upperPath.length < 1)) {
         upperPath = upperPath.split('/');
         upperPath.pop();
         upperPath = upperPath.join('/');
-        m = _.get(swagger.paths, [upperPath, methodName,'operationId']);
+        m = _.get(swagger.paths, [upperPath, methodName, 'operationId']);
+        if (!m && isDelete) {
+            Object.keys(swagger.paths).forEach(p => {
+                if (p.startsWith(upperPath)) {
+                    m = _.get(swagger.paths, [p, methodName, 'operationId']);
+                }
+            });
+        }
     }
     return m;
 }
@@ -290,7 +304,7 @@ import {
 } from 'ui-lib';
 import {${service}} from './basic.service';
 import {MatDialog} from '@angular/material/dialog';
-import {Observable} from 'rxjs';
+import {Observable, merge} from 'rxjs';
 // from x-payload
 import {${importType}} from '../common/types';
 
@@ -303,10 +317,11 @@ class DataSource implements UIDataSource${squareBracket}${type}>{
 
   delete(rows: ${type}[]): Observable${squareBracket}any> {
                     // /path/ delete
+    const observables = [];
     for (const row of rows) {
-        ${deleteMethod};
+        observables.push(${deleteMethod});
     }
-    return;
+    return merge(observables);
   }
 
   insert(row: ${type}): Observable${squareBracket}any> {
