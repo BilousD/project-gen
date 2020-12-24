@@ -96,6 +96,7 @@ function remP(obj) {
     delete obj['x-query'];
     delete obj['x-payload'];
     delete obj['x-path-name'];
+    delete obj['x-generated-example'];
     Object.keys(obj).forEach(key => {
         if (typeof obj[key] === 'object') {
             remP(obj[key]);

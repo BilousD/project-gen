@@ -146,7 +146,7 @@ function getParametersFromPayload(swagger, type) {   // type should be already  
     let controls = '';
     // type from payload    payload='data' => response[200][$ref] = PetsType => PetsType.data => type
     Object.keys(swagger.definitions[type].properties).forEach(param => {
-        if(param !== '$ref' && param !== 'example') {
+        if(param !== '$ref' && param !== 'example' && param !== 'x-generated-example') {
             // TODO change object push to have insides
             // TODO change 'example', use generated examples
             switch (swagger.definitions[type].properties[param].type) {
@@ -172,7 +172,11 @@ function getParametersFromPayload(swagger, type) {   // type should be already  
                 default:
                     if(swagger.definitions[type].properties[param]['$ref']) {
                         let o = _.get(swagger, swagger.definitions[type].properties[param]['$ref'].replace('#/', '').split('/'));
-                        newItem.push(`${param}: ${JSON.stringify(o.properties.example)}`);
+                        if (o.properties['x-generated-example']) {
+                            newItem.push(`${param}: ${JSON.stringify(o.properties['x-generated-example'])}`);
+                        } else {
+                            newItem.push(`${param}: ${JSON.stringify(o.properties.example)}`);
+                        }
                     }
             }
             columns += `makeColumnInfo('${param}', '${fupper(param)}', true, false),\n`
@@ -346,7 +350,7 @@ class DataSource implements UIDataSource${squareBracket}${type}>{
 @Component({
   selector: 'app-${kebabise(path)}-table',
   templateUrl: './${kebabise(path)}-table.component.html',
-  styleUrls: ['./${kebabise(path)}-table.component.css']
+  styleUrls: ['./${kebabise(path)}-table.component.${options.frontendProject.style}']
 })
 export class ${fupper(camelize(path))}TableComponent implements OnInit {
   tableConfiguration: EditTableConfiguration${squareBracket}${type}>;

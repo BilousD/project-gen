@@ -327,7 +327,11 @@ function getMethods(swagger, path, httpMethod) {
                 if(obj.items) {
                     if(obj.items['$ref']) {
                         const ref = _.get(swagger, obj.items['$ref'].replace('#/','').split('/')).properties;
-                        testParams = [ref.example,ref.example];
+                        if (ref['x-generated-example']) {
+                            testParams = [ref['x-generated-example'], ref['x-generated-example']];
+                        } else {
+                            testParams = [ref.example, ref.example];
+                        }
                     } else {
                         const s = switchParams(obj.items);
                         testParams = [s,s];
@@ -340,6 +344,8 @@ function getMethods(swagger, path, httpMethod) {
                     for(const [property, parameters] of Object.entries(obj.properties)) {
                         if(parameters.example) {
                             testParamsObject[property] = parameters.example;
+                        } else if (parameters['x-generated-example']) {
+                            testParamsObject[property] = parameters['x-generated-example'];
                         } else {
                             testParamsObject[property] = switchParams(parameters);
                         }
@@ -356,11 +362,17 @@ function getMethods(swagger, path, httpMethod) {
             let testParams;
             if(param.example) {
                 testParams = param.example;
+            } else if (param['x-generated-example']){
+                testParams = param['x-generated-example'];
             } else {
                 if(param.schema) {
                     if(param.schema['$ref']) {
                         const ref = _.get(swagger, param.schema['$ref'].replace('#/','').split('/')).properties;
-                        testParams = ref.example;
+                        if (ref['x-generated-example']) {
+                            testParams = ref['x-generated-example'];
+                        } else {
+                            testParams = ref.example;
+                        }
                     } else {
                         testParams = switchParams(param.schema);
                     }
@@ -403,6 +415,8 @@ function getMethods(swagger, path, httpMethod) {
             res.end(JSON.stringify(payload));
         } catch (err) {
             log.error(err);
+            res.writeHead(500, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'});
+            res.end(JSON.stringify({status: 500, message: err.message}));
         }
     },
 `;
