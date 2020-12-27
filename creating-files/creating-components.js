@@ -109,7 +109,7 @@ async function createComponents(swagger, options) {
                 console.error('Generating components with ng error, could be something not very important\n\n')
                 console.error(e)
             }
-            const componentFileData = component(service,type,get,post,put,deleteMethod,path,o.newItem,o.columns,o.controls,importType);
+            const componentFileData = component(service,type,get,post,put,deleteMethod,path,o.newItem,o.columns,o.controls,importType,options);
             fs.writeFileSync(`./${options.frontendProject.name}/src/app/${kebabise(path)}-table.component.ts`, componentFileData, 'utf8');
 
             const htmlFileData = getHTML();
@@ -293,7 +293,7 @@ function searchForMethod(methodName, swagger, path, isDelete) {
 
 // TODO Observable types for delete, insert, update
 // TODO change getId
-function component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls,importType) {
+function component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls,importType,options) {
     // square bracket for my ide
     const squareBracket = '<';
 // TODO use filter?
