@@ -1,22 +1,32 @@
 function createFuncTests(swagger, options) {
     for (const path of Object.keys(swagger.paths)) {
-        let del = _.get(swagger.paths, [path,'delete']);
+        let del = _.get(swagger.paths, [path, 'delete']);
         if (!del) continue;
         // if delete is /path/{id}, insert should be /path, could fail if it is something like /path/{id}/subpath
         let insert = _.get(swagger.paths, [path.replace(/\/{\w*}/, ''), 'post']);
+        let insertPath = path.replace(/\/{\w*}/, '');
         if (!insert) {
-            insert = search(swagger, path, 'post');
+            let r = search(swagger, path, 'post');
+            insert = r.m;
+            insertPath = r.path;
         }
         if (!insert) continue;
 
         let update = _.get(swagger.paths, [path, 'put']);
+        let updatePath = path;
         if (!update) {
-            update = search(swagger, path, 'put');
+            let r = search(swagger, path, 'put');
+            update = r.m;
+            updatePath = r.path;
         }
         let get = _.get(swagger.paths, [path.replace(/\/{\w*}/, ''), 'get']);
+        let getPath = path.replace(/\/{\w*}/, '');
         if (!get) {
-            get = search(swagger, path, 'get');
+            let r = search(swagger, path, 'get');
+            get = r.m;
+            getPath = r.path;
         }
+        createFile(insert, insertPath, getPath, updatePath, path);
     }
 }
 
@@ -35,7 +45,7 @@ function search(swagger, path, method) {
             });
         }
     }
-    return m;
+    return {m, path};
 }
 
 /**
@@ -56,9 +66,10 @@ function getDefinition(swagger, ref) {
     return swagger.definitions[ref.split('/')[2]];
 }
 
-let something = {id:'',score:0,lang:'uk',ref:{refId:'',targetUrl:'foo',tooltip:'foo'}};
-something = getDefinition(insert.parameters[0].schema['$ref']).properties['x-generated-example'];
-let a = `const _ = require('lodash');
+function createFile(insert, insertPath, getPath, updatePath, deletePath) {
+    let something = {id:'',score:0,lang:'uk',ref:{refId:'',targetUrl:'foo',tooltip:'foo'}};
+    something = getDefinition(insert.parameters[0].schema['$ref']).properties['x-generated-example'];
+    let a = `const _ = require('lodash');
 const Code = require('@hapi/code');
 const expect = Code.expect;
 const utils = require('./utils');
@@ -82,7 +93,7 @@ const api = require('axios').create({
                                 lObj.push(refId);
                                 param.ref.refId = refId;
                                 param.ref.mimeType = 'text/plain';
-        let result = await api.post('${postPath}',param);
+        let result = await api.post('${insertPath}',param);
         result = result.data;
         param.id = result.data.id;
         expect(param.id).be.string();
@@ -136,4 +147,5 @@ const api = require('axios').create({
 
 });
 `;
+}
 module.exports = createFuncTests;
