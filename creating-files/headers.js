@@ -10,12 +10,14 @@ function getHeaders(controller) {
 
     let backController =
         `const ${camelize(controller)}Db = require('../services/${controller}-db');
+const {writeResponseError} = require('../../errors');
 const log = require('../../log').getLogger('CONTROLLER.${controller.toUpperCase()}');
 
 module.exports = {`;
 
 
     let backService = `const pgPool = require('../db/pg-pool');
+const {HttpCodeError} = require('../../errors');
 const log = require('../../log').getLogger('SERVICE.${controller.toUpperCase()}');
 
 class ${fupper(camelize(controller))}Db {`;

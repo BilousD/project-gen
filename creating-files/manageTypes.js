@@ -202,10 +202,11 @@ function getProperties(obj, key, type, swagger) {
                 }
             }
             if(!obj.example && !obj['x-generated-example']) obj['x-generated-example'] = {};
-            if (obj[property]['x-generated-example']) {
-                obj['x-generated-example'][property] = obj[property].example;
-            } else {
+            if (obj[property]['x-generated-example'] || obj[property]['x-generated-example'] === 0
+                || obj[property]['x-generated-example'] === false) {
                 obj['x-generated-example'][property] = obj[property]['x-generated-example'];
+            } else {
+                obj['x-generated-example'][property] = obj[property].example;
             }
         }
     });

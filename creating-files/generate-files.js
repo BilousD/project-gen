@@ -6,6 +6,7 @@ const {camelize,kebabise,fupper} = require('../change-case');
 const {generateTypesFile, getProperties} = require('./manageTypes');
 const createComponents = require('./creating-components');
 const dockerFile = require("./docker-file");
+const createFuncTests = require("./functioonal-tests");
 
 async function generateFiles(swagger, options) {
 
@@ -37,6 +38,7 @@ async function generateFiles(swagger, options) {
                 files[controller].functionalMethod += functionalMethod;
                 if (options.frontendProject.generate) files[controller].serviceFront += serviceFront;
                 files[controller].importTypes = files[controller].importTypes.concat(importTypes);
+                createFuncTests(swagger, options);
             }
         });
     });

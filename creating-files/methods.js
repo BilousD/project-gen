@@ -415,13 +415,17 @@ function getMethods(swagger, path, httpMethod) {
             res.end(JSON.stringify(payload));
         } catch (err) {
             log.error(err);
-            res.writeHead(500, {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'});
-            res.end(JSON.stringify({status: 500, message: err.message}));
+            writeResponseError(res, err);
         }
     },
 `;
-
-
+    let nfError = '';
+    if (httpMethod === 'put' || httpMethod === 'delete') {
+        nfError = `
+        if(result.rowCount === 0) {
+            throw new HttpCodeError(404, \`${method.operationId} [\${${parameters}}] not found\`);
+        }`;
+    }
 
     let serviceMethod = `    /**
      * ${method.summary}
@@ -430,13 +434,14 @@ function getMethods(swagger, path, httpMethod) {
      */
     async ${camelize(method.operationId)}(${parameters.join(', ')}) {
         let result;
-        ${queries.join('\n    ')}
+        ${queries.join('\n    ')}${nfError}
         return result.rows; 
     }
 `;
 
 
-    // has to be menu: { menu: MenuType , titles: [ TitleType ]}
+    // has to be menu: { menu: MenuType , titles: [ TitleType ]}     15.01 - ????????????????????
+    // expect(res).to.exist() => some result
     let integrationMethod = `    it('${method.operationId}', async ()=>{
         let result = await dao.${camelize(method.operationId)}(${integrationTestParams.join(', ')});
         expect(result).to.exist();
