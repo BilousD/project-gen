@@ -38,7 +38,6 @@ async function generateFiles(swagger, options) {
                 files[controller].functionalMethod += functionalMethod;
                 if (options.frontendProject.generate) files[controller].serviceFront += serviceFront;
                 files[controller].importTypes = files[controller].importTypes.concat(importTypes);
-                createFuncTests(swagger, options);
             }
         });
     });
@@ -110,6 +109,8 @@ async function generateFiles(swagger, options) {
         const functionalFileData = files[controller].headers.functionalTest + '\n' + files[controller].functionalMethod + '\n});'
         fs.writeFileSync(`./${options.backendProject.name}/tests/functional/${controller}-test.js`, functionalFileData, 'utf8');
     });
+
+    createFuncTests(swagger, options);
 
     // write postgre docker file
     const dockerFileData = dockerFile(options);
