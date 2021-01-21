@@ -1,4 +1,5 @@
 const fs = require('fs');
+const _ = require('lodash');
 function createFuncTests(swagger, options) {
     for (const path of Object.keys(swagger.paths)) {
         let del = _.get(swagger.paths, [path, 'delete']);
@@ -27,7 +28,7 @@ function createFuncTests(swagger, options) {
             get = r.m;
             getPath = r.path;
         }
-        createFile(insert, insertPath, get, getPath, update, updatePath, del, path, options);
+        createFile(swagger, options, insert, insertPath, get, getPath, update, updatePath, del, path);
     }
 }
 
@@ -50,26 +51,60 @@ function search(swagger, path, method) {
     return {m, path};
 }
 
-/**
- * tests should be:
- * insert
- * update-get
- * delete
- *
- * tests should not be without:
- * insert (cant update, get or delete without something)
- * delete (cant test database leaving junk)
- *
- * its okay to not insert, but really bad to not delete
- * so testing should be only if it has delete function
- */
-
 function getDefinition(swagger, ref) {
-    return swagger.definitions[ref.split('/')[2]];
+    try {
+        return swagger.definitions[ref.split('/')[2]];
+    } catch (e) {
+        console.error(e);
+        return {properties: {'x-generated-example': {}}};
+    }
 }
 
-function createFile(insert, insertPath, get, getPath, update, updatePath, del, deletePath, options) {
-    let param = getDefinition(insert.parameters[0].schema['$ref']).properties['x-generated-example'];
+function updateParam(param, offset) {
+    let k;
+    if (offset) {
+        let arr = Object.keys(param);
+        if (arr.length < offset) {
+            return `${arr[0]} = {}`;
+        }
+        k = arr[arr.length - offset];
+    } else {
+        offset = 0;
+        k = _.last(Object.keys(param));
+    }
+
+    switch(typeof param[k]) {
+        case "number":
+            return `${k} = ${param[k] + 1}`;
+        case "boolean":
+            return `${k} = true`;
+        case "string":
+            return `${k} = ${param[k]}bar`;
+        case "undefined":
+            return `${k} = 'defined'`;
+        case "object":
+            return updateParam(param, offset + 1);
+    }
+}
+
+function failUpdate(update, path, param) {
+    if (path.endsWith('}')) {
+        return `            await api.put(\`${path}\${'absent'}\`, p);`;
+    }
+    let id;
+    for(let k of Object.keys(param)) {
+        if (k.match(/id/gi)) {
+            id = k;
+            break;
+        }
+    }
+    return `            p.${id} = 'absent';`;
+}
+
+function createFile(swagger, options, insert, insertPath, get, getPath, update, updatePath, del, deletePath) {
+    // TODO get ref from other sources if not found here, or check for ref when searching for insert
+    let ref = _.get(insert, 'parameters[0].schema[$ref]');
+    let param = getDefinition(swagger, ref).properties['x-generated-example'];
     let head = `const _ = require('lodash');
 const Code = require('@hapi/code');
 const expect = Code.expect;
@@ -82,18 +117,8 @@ const api = require('axios').create({
     }
 });
  describe('Test banner controller',()=>{
-    const param = ${param};
-    const lObj = [];
-    after(async()=>{
-        for(const id of lObj) {
-            await api.delete(\`/files/\${id}\`);
-        }
-    });
+    const param = ${JSON.stringify(param)};
     it('addBanner', async ()=>{
-                                const refId = await utils.saveLargeObject('Hello World!');              ???
-                                lObj.push(refId);
-                                param.ref.refId = refId;
-                                param.ref.mimeType = 'text/plain';
         let result = await api.post('${insertPath}',param);
         result = result.data;
         param.id = result.data.id;
@@ -101,19 +126,15 @@ const api = require('axios').create({
     });`
     let middleGet = '';
     if (get) middleGet = `    it('getBanners', async ()=>{
-        let result = await api.get('${getPath}'); ------------------------------------------  add id if requires, but often should be getAll
+        ////////////////////////////////////////////////////////////////////////let result = await api.get('${getPath}');
         result = result.data.data;
         expect(result).to.equals([param]);
     });`;
     let middleUpdate = '';
     if (update) middleUpdate = `    it('updateBanner', async ()=>{
-                    param.score = 1;        change param to something
-                    param.lang = 'en';
-                                const refId = await utils.saveLargeObject('Hello World 2!!');
-                                lObj.push(refId);
-                                param.ref.refId = refId;
+        param.${updateParam(param)};
                                 
-        let result = await api.put(\`${updatePath}\${param.id}\`,param); ------------------------------------ path should have id in it, but if not - id is in body need to use param.id
+        //////////////////////////////////////////////////////////////////let result = await api.put(\`${updatePath}\${param.id}\`,param);
         result = result.data.data;
         expect(result).to.equal({id: param.id});
         result = await api.get('\${getPath}');
@@ -122,9 +143,8 @@ const api = require('axios').create({
     });
     it('updateBanner negative', async ()=>{
         try{
-                                                            const p = _.cloneDeep(param);
-                                                            p.id = 'absent';
-            await api.put(\`${updatePath}\${'absent'}\`,p);  ------------------------------------ path should have id in it, but if not - id is in body need to change param.id
+            const p = _.cloneDeep(param);
+            ${failUpdate(update, updatePath, param)}
             throw new Error();
         } catch (e) {
             let response = e.response;
