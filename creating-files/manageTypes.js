@@ -24,7 +24,11 @@ function switchArray(items, key, type, swagger) {
         if(!items.example && !items['x-generated-example']) {
             const ref = _.get(swagger, items['$ref'].replace('#/','').split('/')).properties;
             const {propertyValue, changedType} = getProperties(ref, '', '', swagger);
-            items['x-generated-example'] = ref.example;
+            if (ref.example) {
+                items['x-generated-example'] = ref.example;
+            } else {
+                items['x-generated-example'] = ref['x-generated-example'];
+            }
         }
     } else {
         switch (items.type) {
@@ -106,7 +110,11 @@ function getProperties(obj, key, type, swagger) {
                 if(!obj[property].example && !obj[property]['x-generated-example']) {
                     const ref = _.get(swagger, obj[property]['$ref'].replace('#/','').split('/')).properties;
                     const {propertyValue, changedType} = getProperties(ref, '', '', swagger);
-                    obj[property]['x-generated-example'] = ref.example;
+                    if (ref.example) {
+                        obj[property]['x-generated-example'] = ref.example;
+                    } else {
+                        obj[property]['x-generated-example'] = ref['x-generated-example'];
+                    }
                 }
             } else {
                 switch (obj[property].type) {

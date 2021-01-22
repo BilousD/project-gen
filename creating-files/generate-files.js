@@ -91,6 +91,10 @@ async function generateFiles(swagger, options) {
         }
 
         await createComponents(swagger, options);
+    } else {
+        Object.keys(files).forEach(controller => {
+            files[controller].headers = getHeaders(controller);
+        });
     }
 
     // Writing back files
