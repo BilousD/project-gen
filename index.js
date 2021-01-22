@@ -54,7 +54,9 @@ async function main() {
         process.exit(1);
     }
 
-    fs.copyFileSync(swaggerFile,`./${options.backendProject.name}/swagger${path.extname(swaggerFile)}`);
+
+    // fs.copyFileSync(swaggerFile,`./${options.backendProject.name}/swagger${path.extname(swaggerFile)}`);
+
     fs.copyFileSync(dbFile,`./${options.backendProject.name}/src/db/db.sql`);
 
     if(options.frontendProject.generate) {
@@ -80,6 +82,26 @@ async function main() {
         console.error('Failed to run "npm install"\n')
         console.error(err);
     }
+
+    remP(parsedSwagger);
+    if (path.extname(swaggerFile) === '.json') {
+        fs.writeFileSync(`./${options.backendProject.name}/swagger.json`, JSON.stringify(parsedSwagger, null, '    ')
+        );
+    } else {
+        fs.writeFileSync(`./${options.backendProject.name}/swagger.yaml`, YAML.stringify(parsedSwagger)
+        );
+    }
+}
+function remP(obj) {
+    delete obj['x-query'];
+    delete obj['x-payload'];
+    delete obj['x-path-name'];
+    delete obj['x-generated-example'];
+    Object.keys(obj).forEach(key => {
+        if (typeof obj[key] === 'object') {
+            remP(obj[key]);
+        }
+    });
 }
 
 function optionsInit() {

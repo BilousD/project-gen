@@ -109,7 +109,7 @@ async function createComponents(swagger, options) {
                 console.error('Generating components with ng error, could be something not very important\n\n')
                 console.error(e)
             }
-            const componentFileData = component(service,type,get,post,put,deleteMethod,path,o.newItem,o.columns,o.controls,importType);
+            const componentFileData = component(service,type,get,post,put,deleteMethod,path,o.newItem,o.columns,o.controls,importType,options);
             fs.writeFileSync(`./${options.frontendProject.name}/src/app/${kebabise(path)}-table.component.ts`, componentFileData, 'utf8');
 
             const htmlFileData = getHTML();
@@ -146,7 +146,7 @@ function getParametersFromPayload(swagger, type) {   // type should be already  
     let controls = '';
     // type from payload    payload='data' => response[200][$ref] = PetsType => PetsType.data => type
     Object.keys(swagger.definitions[type].properties).forEach(param => {
-        if(param !== '$ref' && param !== 'example') {
+        if(param !== '$ref' && param !== 'example' && param !== 'x-generated-example') {
             // TODO change object push to have insides
             // TODO change 'example', use generated examples
             switch (swagger.definitions[type].properties[param].type) {
@@ -172,7 +172,11 @@ function getParametersFromPayload(swagger, type) {   // type should be already  
                 default:
                     if(swagger.definitions[type].properties[param]['$ref']) {
                         let o = _.get(swagger, swagger.definitions[type].properties[param]['$ref'].replace('#/', '').split('/'));
-                        newItem.push(`${param}: ${JSON.stringify(o.properties.example)}`);
+                        if (o.properties['x-generated-example']) {
+                            newItem.push(`${param}: ${JSON.stringify(o.properties['x-generated-example'])}`);
+                        } else {
+                            newItem.push(`${param}: ${JSON.stringify(o.properties.example)}`);
+                        }
                     }
             }
             columns += `makeColumnInfo('${param}', '${fupper(param)}', true, false),\n`
@@ -212,40 +216,76 @@ function getServiceMethods(swagger, path) {
     // Found something to display
     let post = _.get(swagger.paths, [path,'post','operationId']);
     // If current path doesn't have post method, upper path level could have it     ???
+    // search somewhere POST
+    if (!post) {
+        post = searchForMethod('post', swagger, path);
+    }
     if(!post) {
-        // search somewhere POST
         // if still not found
         post = 'new Observable(subscriber => { subscriber.complete() })'
     } else {
         // TODO put something in brackets everywhere
-        post = `this.service.${camelize(post)}()`;
+        // post.parameters
+        // if (x-query)  change ':body.status[]' to status: []
+        post = `this.service.${camelize(post)}(row)`;
     }
 
     let put = _.get(swagger.paths, [path,'put','operationId']);
+    if (!put) {
+        put = searchForMethod('put', swagger, path);
+    }
     if(!put) { // if no put, use post
         put = post;
     } else {
-        put = `this.service.${camelize(put)}()`;
+        put = `this.service.${camelize(put)}(row)`;
     }
 
     let deleteMethod = _.get(swagger.paths, [path,'delete','operationId']);
-    if (!deleteMethod) { // probably always true
-        // check for '/path/something'
-        // TODO change search, because it can be something like '/pet/delete-something-else', but delete '/pet/{id}' present
-        deleteMethod = _.get(swagger.paths, [_.findKey(_.pickBy(swagger.paths,
-            (value, key) => key.startsWith(path+'/{')), 'delete')
-            ,'delete','operationId']);
-
+    // if (!deleteMethod) { // probably always true
+    //     // check for '/path/something'
+    //     // TODO change search, because it can be something like '/pet/delete-something-else', but delete '/pet/{id}' present
+    //     deleteMethod = _.get(swagger.paths, [_.findKey(_.pickBy(swagger.paths,
+    //         (value, key) => key.startsWith(path+'/{')), 'delete')
+    //         ,'delete','operationId']);
+    //
+    // }
+    // /path/{id}
+    if (!deleteMethod) {
+        deleteMethod = searchForMethod('delete', swagger, path, true);
     }
     // if no delete found after searching
     if(!deleteMethod) {
         deleteMethod = 'new Observable(subscriber => { subscriber.complete() })';
     } else {
-        deleteMethod = `this.service.${camelize(deleteMethod)}()`;
+        deleteMethod = `this.service.${camelize(deleteMethod)}(row)`;
     }
     return {post,put,deleteMethod};
 }
-
+function searchForMethod(methodName, swagger, path, isDelete) {
+    let upperPath = path;
+    let m;
+    if (isDelete) {
+        Object.keys(swagger.paths).forEach(p => {
+            if (p.startsWith(upperPath)) {
+                m = _.get(swagger.paths, [p, methodName, 'operationId']);
+            }
+        });
+    }
+    while (!(m || upperPath.length < 1)) {
+        upperPath = upperPath.split('/');
+        upperPath.pop();
+        upperPath = upperPath.join('/');
+        m = _.get(swagger.paths, [upperPath, methodName, 'operationId']);
+        if (!m && isDelete) {
+            Object.keys(swagger.paths).forEach(p => {
+                if (p.startsWith(upperPath)) {
+                    m = _.get(swagger.paths, [p, methodName, 'operationId']);
+                }
+            });
+        }
+    }
+    return m;
+}
 // one component per path.get (  /path/{id}  should not get new component  )
 // TODO HOW TO GET  "DELETE INSERT UPDATE SELECT"  if only  "get, post" is present in /path/ , and what needed is in /path/{id}
 // TODO remove {id} with regex => what is needed, but cant call it
@@ -253,10 +293,10 @@ function getServiceMethods(swagger, path) {
 
 // TODO Observable types for delete, insert, update
 // TODO change getId
-function component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls,importType) {
+function component(service,type,get,post,put,deleteMethod,path,newItem,columns,controls,importType,options) {
     // square bracket for my ide
     const squareBracket = '<';
-
+// TODO use filter?
 return `import {Component, OnInit} from '@angular/core';
 import {
   BuilderFieldControlConfiguration,
@@ -268,7 +308,7 @@ import {
 } from 'ui-lib';
 import {${service}} from './basic.service';
 import {MatDialog} from '@angular/material/dialog';
-import {Observable} from 'rxjs';
+import {Observable, merge} from 'rxjs';
 // from x-payload
 import {${importType}} from '../common/types';
 
@@ -281,7 +321,11 @@ class DataSource implements UIDataSource${squareBracket}${type}>{
 
   delete(rows: ${type}[]): Observable${squareBracket}any> {
                     // /path/ delete
-    return ${deleteMethod};
+    const observables = [];
+    for (const row of rows) {
+        observables.push(${deleteMethod});
+    }
+    return merge(observables);
   }
 
   insert(row: ${type}): Observable${squareBracket}any> {
@@ -306,7 +350,7 @@ class DataSource implements UIDataSource${squareBracket}${type}>{
 @Component({
   selector: 'app-${kebabise(path)}-table',
   templateUrl: './${kebabise(path)}-table.component.html',
-  styleUrls: ['./${kebabise(path)}-table.component.css'] // TODO change to ...
+  styleUrls: ['./${kebabise(path)}-table.component.${options.frontendProject.style}']
 })
 export class ${fupper(camelize(path))}TableComponent implements OnInit {
   tableConfiguration: EditTableConfiguration${squareBracket}${type}>;
@@ -317,7 +361,7 @@ export class ${fupper(camelize(path))}TableComponent implements OnInit {
     this.tableConfiguration = {
       readonly: false,
       dataSource: new DataSource(this.service),
-                        // x-payload => everything in type TODO if object or array or number change to corresponding blanks
+
       newItem: () => ({${newItem.join(', ')}}),
       // TODO change to ... ?
       getId: (r) => '' + r.id,

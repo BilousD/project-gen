@@ -36,3 +36,14 @@ CREATE TABLE IF NOT EXISTS public.orders
     status VARCHAR(10),
     complete BOOLEAN
 );
+CREATE TABLE IF NOT EXISTS public.users
+(
+    id INTEGER PRIMARY KEY,
+    username VARCHAR(16),
+    first_name VARCHAR(16),
+    last_name VARCHAR(16),
+    email VARCHAR(30),
+    password VARCHAR(30),
+    phone VARCHAR(16),
+    user_status INTEGER
+);

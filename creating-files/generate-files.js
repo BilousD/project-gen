@@ -6,6 +6,7 @@ const {camelize,kebabise,fupper} = require('../change-case');
 const {generateTypesFile, getProperties} = require('./manageTypes');
 const createComponents = require('./creating-components');
 const dockerFile = require("./docker-file");
+const createFuncTests = require("./functioonal-tests");
 
 async function generateFiles(swagger, options) {
 
@@ -90,6 +91,10 @@ async function generateFiles(swagger, options) {
         }
 
         await createComponents(swagger, options);
+    } else {
+        Object.keys(files).forEach(controller => {
+            files[controller].headers = getHeaders(controller);
+        });
     }
 
     // Writing back files
@@ -108,6 +113,8 @@ async function generateFiles(swagger, options) {
         const functionalFileData = files[controller].headers.functionalTest + '\n' + files[controller].functionalMethod + '\n});'
         fs.writeFileSync(`./${options.backendProject.name}/tests/functional/${controller}-test.js`, functionalFileData, 'utf8');
     });
+
+    createFuncTests(swagger, options);
 
     // write postgre docker file
     const dockerFileData = dockerFile(options);

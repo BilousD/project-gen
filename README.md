@@ -81,7 +81,20 @@ responses:
         description: 
         schema:
 ```
-
+`x-param-name` for parameters stored in a path or query that have a name different from value of corresponding type
+``` yaml
+paths:
+    /example-path/{petId}:
+        x-swagger-router-controller: example-pet
+        delete:
+            ...
+            parameters:
+            - name: "petId"
+              in: "path"
+              x-param-name: "id"
+```
+  
+  
 #### Example
 In `example` folder, there is modified `swagger.yaml` file from https://editor.swagger.io/
 `petstore.sql` and `options.yaml` are created manually. 

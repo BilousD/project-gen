@@ -120,13 +120,21 @@ function getMethods(swagger, path, httpMethod) {
                 // split into only two for now, only one for(), TODO queries with multidimensional arrays
                 let a = [];
                 if(p.indexOf("[]") > 0) {
+                    // body[].id => [body, .id]
                     a = p.split('[]');
+                    // body[].items[] => error
                     if(a.length > 2) throw new Error(`Multiple arrays in single query is not supported for now, ${query}`);
+                    // body.items[] => [body, items] => items
                     let item = a[0].split('.').pop();
+                    // items[] => item, body[] => b
                     if(item.length < 2) {
                         item += 'Temp';
                     } else {
-                        item = item.slice(0,item.length-1);
+                        if (item.slice(-1) === 's') {
+                            item = item.slice(0, -1);
+                        } else {
+                            item = item.slice(0, 1);
+                        }
                     }
                     if(checkDuplicates[item+a[1]]) {
                         return checkDuplicates[item+a[1]];
@@ -166,7 +174,7 @@ function getMethods(swagger, path, httpMethod) {
         } else {
             processQuery(method['x-query']);
         }
-        if (method.parameters) {
+        if (method.parameters && method.parameters.length > 0) {
             parametersController.push(`req.swagger.params.${method.parameters.map(e => e.name).join(".value, req.swagger.params.")}.value`);
             parameters.push(method.parameters.map(e => e.name));
         }
@@ -319,7 +327,11 @@ function getMethods(swagger, path, httpMethod) {
                 if(obj.items) {
                     if(obj.items['$ref']) {
                         const ref = _.get(swagger, obj.items['$ref'].replace('#/','').split('/')).properties;
-                        testParams = [ref.example,ref.example];
+                        if (ref['x-generated-example']) {
+                            testParams = [ref['x-generated-example'], ref['x-generated-example']];
+                        } else {
+                            testParams = [ref.example, ref.example];
+                        }
                     } else {
                         const s = switchParams(obj.items);
                         testParams = [s,s];
@@ -332,6 +344,8 @@ function getMethods(swagger, path, httpMethod) {
                     for(const [property, parameters] of Object.entries(obj.properties)) {
                         if(parameters.example) {
                             testParamsObject[property] = parameters.example;
+                        } else if (parameters['x-generated-example']) {
+                            testParamsObject[property] = parameters['x-generated-example'];
                         } else {
                             testParamsObject[property] = switchParams(parameters);
                         }
@@ -348,11 +362,17 @@ function getMethods(swagger, path, httpMethod) {
             let testParams;
             if(param.example) {
                 testParams = param.example;
+            } else if (param['x-generated-example']){
+                testParams = param['x-generated-example'];
             } else {
                 if(param.schema) {
                     if(param.schema['$ref']) {
                         const ref = _.get(swagger, param.schema['$ref'].replace('#/','').split('/')).properties;
-                        testParams = ref.example;
+                        if (ref['x-generated-example']) {
+                            testParams = ref['x-generated-example'];
+                        } else {
+                            testParams = ref.example;
+                        }
                     } else {
                         testParams = switchParams(param.schema);
                     }
@@ -373,6 +393,9 @@ function getMethods(swagger, path, httpMethod) {
                     testPath += '/'+JSON.stringify(testParams);
                     break;
                 case 'body':
+                    if (!functionalTestParams) {
+                        functionalTestParams = ',';
+                    }
                     functionalTestParams += JSON.stringify(testParams);
                     break;
             }
@@ -392,11 +415,17 @@ function getMethods(swagger, path, httpMethod) {
             res.end(JSON.stringify(payload));
         } catch (err) {
             log.error(err);
+            writeResponseError(res, err);
         }
     },
 `;
-
-
+    let nfError = '';
+    if (httpMethod === 'put' || httpMethod === 'delete') {
+        nfError = `
+        if(result.rowCount === 0) {
+            throw new HttpCodeError(404, \`${method.operationId} [\${${parameters}}] not found\`);
+        }`;
+    }
 
     let serviceMethod = `    /**
      * ${method.summary}
@@ -405,13 +434,14 @@ function getMethods(swagger, path, httpMethod) {
      */
     async ${camelize(method.operationId)}(${parameters.join(', ')}) {
         let result;
-        ${queries.join('\n    ')}
+        ${queries.join('\n    ')}${nfError}
         return result.rows; 
     }
 `;
 
 
-    // has to be menu: { menu: MenuType , titles: [ TitleType ]}
+    // has to be menu: { menu: MenuType , titles: [ TitleType ]}     15.01 - ????????????????????
+    // expect(res).to.exist() => some result
     let integrationMethod = `    it('${method.operationId}', async ()=>{
         let result = await dao.${camelize(method.operationId)}(${integrationTestParams.join(', ')});
         expect(result).to.exist();
@@ -423,16 +453,64 @@ function getMethods(swagger, path, httpMethod) {
     // if in path - put in path                header: put in header                    query
     // path = '' + id    /order/1               api.headers["api_key"] = 1 ???          ?paramName=value
     let functionalMethod = `    it('${method.operationId}', async ()=>{
-        let result = await api.${httpMethod}('${path.replace(/\/{\w*}/g, '')}${testPath.replace(/"/g,'')}',${functionalTestParams});
+        let result = await api.${httpMethod}('${path.replace(/\/{\w*}/g, '')}${testPath.replace(/"/g,'')}'${functionalTestParams});
         result = result.data;
         expect(result).to.exist();
     });
 `;
 
-// TODO something here
-    let serviceFront = `    ${camelize(method.operationId)}(): Observable${payloadType}{
-        return this.http.${httpMethod}${type}(API_URL + '${path}', this.httpOptions)${map};
+    let pathParam = path;
+    let query = '';
+    pathParam = pathParam.replace(/{\w*}/g, (str) => {
+        method.parameters.forEach(p => {
+            if (p.name === str) {
+                if (p['x-param-name']) {
+                    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+                        return `\${body.${p['x-param-name']}}`;
+                    } else {
+                        return `\${parameters.${p['x-param-name']}}`;
+                    }
+                } else {
+                    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+                        return '${body.' + str.slice(1);
+                    } else {
+                        return '${parameters.' + str.slice(1);
+                    }
+                }
+            }
+            if (p.in === 'query') {
+                if (p['x-param-name']) {
+                    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+                        query += p.name + '=' + '${body.' + p['x-param-name'] + '}';
+                    } else {
+                        query += p.name + '=' + '${parameters.' + p['x-param-name'] + '}';
+                    }
+                } else {
+                    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+                        query += p.name + '=' + '${body.' + p.name + '}';
+                    } else {
+                        query += p.name + '=' + '${parameters.' + p.name + '}';
+                    }
+
+                }
+            }
+        });
+    });
+    if (query) {
+        query = '?' + query;
+    }
+
+    let serviceFront = '';
+    if (httpMethod !== 'get' && httpMethod !== 'delete') {
+        serviceFront = `    ${camelize(method.operationId)}(body): Observable${payloadType}{
+        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}${query}\`, body, this.httpOptions)${map};
     }\n`;
+    } else {
+        serviceFront = `    ${camelize(method.operationId)}(parameters?): Observable${payloadType}{
+        return this.http.${httpMethod}${type}(API_URL + \`${pathParam}${query}\`, this.httpOptions)${map};
+    }\n`;
+    }
+
 
     let importTypes = [];
     switch (type.replace(/<*>*\[*]*/g, '')) {
