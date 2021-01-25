@@ -1,6 +1,7 @@
 const fs = require('fs');
 const _ = require('lodash');
 function createFuncTests(swagger, options) {
+    let i = 0;
     for (const path of Object.keys(swagger.paths)) {
         let del = _.get(swagger.paths, [path, 'delete']);
         if (!del) continue;
@@ -28,12 +29,26 @@ function createFuncTests(swagger, options) {
             get = r.m;
             getPath = r.path;
         }
-        createFile(swagger, options, insert, insertPath, get, getPath, update, updatePath, del, path, swagger.paths[path]['x-swagger-router-controller']);
+        let controller;
+        try {
+            controller = swagger.paths[path]['x-swagger-router-controller'];
+        } catch (e) {
+            console.error(`x-swagger-router-controller not found in ${path}`);
+            controller = 'unknown-controller' + i++;
+        }
+        createFile(swagger, options, insert, insertPath, get, getPath, update, updatePath, del, path, controller);
     }
 }
 
 function search(swagger, path, method) {
-    let controller = swagger.paths[path]['x-swagger-router-controller'];
+    let controller;
+    try {
+        controller = swagger.paths[path]['x-swagger-router-controller'];
+    } catch (e) {
+        console.error(`x-swagger-router-controller not found in ${path}`);
+        return {m: undefined, path: undefined};
+    }
+
     let m;
     m = _.get(swagger.paths, [path, method]);
     while (!(m || path.length < 1)) {
@@ -44,10 +59,14 @@ function search(swagger, path, method) {
     }
     if (!m) {
         for (let p of Object.keys(swagger.paths)) {
-            if (swagger.paths[p]['x-swagger-router-controller'] === controller) {
-                m = _.get(swagger.paths, [p, method]);
-                path = p;
-                if (m) break;
+            try {
+                if (swagger.paths[p]['x-swagger-router-controller'] === controller) {
+                    m = _.get(swagger.paths, [p, method]);
+                    path = p;
+                    if (m) { break; }
+                }
+            } catch (e) {
+                console.error(`x-swagger-router-controller not found in ${p}`);
             }
         }
     }
@@ -124,7 +143,7 @@ function pathOfGet(get, getPath) {
                 return `${getPath.replace(/\/{\w*}/, '')}?${get.parameters[0].name}=\${param.${get.parameters[0].name}}`;
             }
     }
-    return 'ERROR: NOT FOUND';
+    return 'ERROR: PARAMETER NOT FOUND';
 }
 function pathOfUpdate(update, updatePath) {
     if (update.parameters.length < 2) {
@@ -137,7 +156,7 @@ function pathOfUpdate(update, updatePath) {
             return `${updatePath.replace(/\/{\w*}/, '')}/\${param.${update.parameters[0].name}}`;
         }
     }
-    return 'ERROR: NOT FOUND';
+    return 'ERROR: PARAMETER NOT FOUND';
 }
 function createFile(swagger, options, insert, insertPath, get, getPath, update, updatePath, del, deletePath, controller) {
     // TODO get ref from other sources if not found here, or check for ref when searching for insert
